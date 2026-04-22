@@ -384,7 +384,7 @@ const Pages = {
             </div>
             <div class="form-group">
               <label class="form-label">Email Address</label>
-              <input class="form-input" id="contact-email" type="email" placeholder="jane@example.com">
+              <input class="form-input" id="contact-email" type="email" placeholder="jane@gmail.com">
             </div>
             <div class="form-group">
               <label class="form-label">Message</label>
