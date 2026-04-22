@@ -361,10 +361,10 @@ const Pages = {
           <!-- Contact info -->
           <div style="display:flex;flex-direction:column;gap:16px">
             ${[
-              ['📧','Email','hello@resumeai.app'],
-              ['🐦','Twitter','@resumeai'],
-              ['💼','LinkedIn','linkedin.com/company/resumeai'],
-              ['📍','Location','San Francisco, CA'],
+              ['📧','Email','r.sharmaaa2006@gmail.com'],
+              ['🐦','github','https://github.com/ritik-sharmaaa'],
+              ['💼','LinkedIn','https://www.linkedin.com/in/ritik-sharma-93056638b/'],
+              ['📍','Location','Delhi, India'],
             ].map(([icon, label, val]) => `
             <div class="card" style="display:flex;align-items:center;gap:14px">
               <span style="font-size:1.4rem">${icon}</span>
