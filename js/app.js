@@ -4,10 +4,9 @@
 
 // ── Config ────────────────────────────────────────────────
 // USER: Paste your Gemini API key here
-const GEMINI_API_KEY = 'AQ.Ab8RN6JyxKb1U1GLdD8fkUQWykGRwjVQbFFv0OQ8ma1da8-sqg';
+const GEMINI_API_KEY = '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';
 
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
-
+const GEMINI_URL = 'https://api.openai.com/v1/chat/completions';
 // ── App ───────────────────────────────────────────────────
 const App = {
   user: null,
