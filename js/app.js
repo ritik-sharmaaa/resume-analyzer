@@ -4,7 +4,7 @@
 
 // ── Config ────────────────────────────────────────────────
 // USER: Paste your Gemini API key here
-const GEMINI_API_KEY = 'AQ.Ab8RN6IRyewxMKoc8ta8v-jKAsTADYu8CmfxYL-knwq-_IxbjQ';
+const GEMINI_API_KEY = 'AQ.Ab8RN6JyuMGZ9NUC2HYEspfq-XmwQ1lDWl5-MOW0NMQdSMzngg';
 
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
 
