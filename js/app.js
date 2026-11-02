@@ -1,333 +1,270 @@
 /* ============================================================
-   AI Resume Analyzer — Core JS (auth, routing, utilities)
+   ResumeAI v2 — Core (auth, router, storage, PDF, utils)
    ============================================================ */
 
-// ── App State ──────────────────────────────────────────────
+// ── Config ────────────────────────────────────────────────
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent';
+
+// ── App ───────────────────────────────────────────────────
 const App = {
-  currentUser: null,
-  currentPage: 'home',
+  user: null,
 
-  /** Boot the application */
   init() {
+    // Load PDF.js worker
+    if (typeof pdfjsLib !== 'undefined') {
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
     this.loadUser();
-    this.router();
-    window.addEventListener('hashchange', () => this.router());
+    this.route();
+    window.addEventListener('hashchange', () => this.route());
   },
 
-  /** Load authenticated user from localStorage */
   loadUser() {
-    const data = localStorage.getItem('ara_current_user');
-    if (data) {
-      try { this.currentUser = JSON.parse(data); } catch(e) { this.currentUser = null; }
-    }
+    try {
+      const d = localStorage.getItem('ru_user');
+      this.user = d ? JSON.parse(d) : null;
+    } catch { this.user = null; }
   },
 
-  /** Simple hash-based router */
-  router() {
+  route() {
     const hash = window.location.hash.slice(1) || 'home';
-    this.currentPage = hash;
+    const protected_ = ['dashboard','analyzer','result','profile'];
+    const authOnly   = ['login','signup'];
 
-    // Redirect unauthenticated users away from protected pages
-    const protected_pages = ['dashboard', 'analyzer', 'result', 'profile'];
-    const auth_pages = ['login', 'signup'];
-
-    if (protected_pages.includes(hash) && !this.currentUser) {
-      window.location.hash = 'login';
-      return;
-    }
-    if (auth_pages.includes(hash) && this.currentUser) {
-      window.location.hash = 'dashboard';
-      return;
-    }
+    if (protected_.includes(hash) && !this.user) { location.hash = 'login'; return; }
+    if (authOnly.includes(hash)   && this.user)  { location.hash = 'dashboard'; return; }
 
     Pages.render(hash);
+    window.scrollTo(0,0);
   },
 
-  /** Navigate programmatically */
-  navigate(page) {
-    window.location.hash = page;
-  }
+  go(page) { location.hash = page; }
 };
 
-// ── Auth ───────────────────────────────────────────────────
+// ── Auth ──────────────────────────────────────────────────
 const Auth = {
-  /** Register new user */
-  signup(name, email, password) {
-    const users = this.getUsers();
-    if (users.find(u => u.email === email)) {
-      return { ok: false, msg: 'An account with this email already exists.' };
-    }
-    const user = {
+  users() {
+    try { return JSON.parse(localStorage.getItem('ru_users')) || []; } catch { return []; }
+  },
+
+  saveUsers(u) { localStorage.setItem('ru_users', JSON.stringify(u)); },
+
+  setUser(u) {
+    localStorage.setItem('ru_user', JSON.stringify(u));
+    App.user = u;
+  },
+
+  signup(name, email, pass) {
+    const users = this.users();
+    if (users.find(u => u.email === email))
+      return { ok: false, msg: 'Email already registered.' };
+    const u = {
       id: Date.now().toString(),
-      name,
-      email,
-      password: btoa(password), // base64 – good enough for demo
-      createdAt: new Date().toISOString(),
-      avatar: name.charAt(0).toUpperCase()
+      name, email,
+      pass: btoa(pass),
+      joined: new Date().toISOString(),
+      initials: name.slice(0,2).toUpperCase()
     };
-    users.push(user);
-    localStorage.setItem('ara_users', JSON.stringify(users));
-    this.setCurrentUser(user);
+    users.push(u);
+    this.saveUsers(users);
+    this.setUser(u);
     return { ok: true };
   },
 
-  /** Authenticate existing user */
-  login(email, password) {
-    const users = this.getUsers();
-    const user = users.find(u => u.email === email && u.password === btoa(password));
-    if (!user) return { ok: false, msg: 'Invalid email or password.' };
-    this.setCurrentUser(user);
+  login(email, pass) {
+    const u = this.users().find(u => u.email === email && u.pass === btoa(pass));
+    if (!u) return { ok: false, msg: 'Wrong email or password.' };
+    this.setUser(u);
     return { ok: true };
   },
 
-  /** Logout */
   logout() {
-    localStorage.removeItem('ara_current_user');
-    App.currentUser = null;
-    App.navigate('home');
+    localStorage.removeItem('ru_user');
+    App.user = null;
+    App.go('home');
   },
 
-  setCurrentUser(user) {
-    const safe = { ...user, password: undefined }; // don't store pw in session
-    localStorage.setItem('ara_current_user', JSON.stringify(user));
-    App.currentUser = user;
-  },
-
-  getUsers() {
-    try { return JSON.parse(localStorage.getItem('ara_users')) || []; } catch { return []; }
-  },
-
-  /** Update profile */
-  updateProfile(name, email) {
-    const users = this.getUsers();
-    const idx = users.findIndex(u => u.id === App.currentUser.id);
-    if (idx === -1) return { ok: false, msg: 'User not found.' };
-    users[idx].name = name;
-    users[idx].email = email;
-    users[idx].avatar = name.charAt(0).toUpperCase();
-    localStorage.setItem('ara_users', JSON.stringify(users));
-    this.setCurrentUser(users[idx]);
+  update(name, email) {
+    const users = this.users();
+    const i = users.findIndex(u => u.id === App.user.id);
+    if (i < 0) return { ok: false, msg: 'User not found.' };
+    users[i] = { ...users[i], name, email, initials: name.slice(0,2).toUpperCase() };
+    this.saveUsers(users);
+    this.setUser(users[i]);
     return { ok: true };
   }
 };
 
-// ── Reports Store ──────────────────────────────────────────
+// ── Reports ───────────────────────────────────────────────
 const Reports = {
-  /** Save a new analysis report */
-  save(report) {
-    const all = this.getAll();
-    all.unshift({ ...report, id: Date.now().toString(), date: new Date().toISOString() });
-    localStorage.setItem('ara_reports', JSON.stringify(all));
-  },
-
-  /** Get all reports for current user */
-  getAll() {
+  all() {
     try {
-      const all = JSON.parse(localStorage.getItem('ara_reports')) || [];
-      return all.filter(r => r.userId === (App.currentUser?.id || ''));
+      const all = JSON.parse(localStorage.getItem('ru_reports')) || [];
+      return all.filter(r => r.uid === App.user?.id);
     } catch { return []; }
   },
 
-  /** Get single report by id */
-  getById(id) {
+  save(r) {
     try {
-      const all = JSON.parse(localStorage.getItem('ara_reports')) || [];
-      return all.find(r => r.id === id) || null;
+      const all = JSON.parse(localStorage.getItem('ru_reports')) || [];
+      all.unshift({ ...r, id: Date.now().toString(), date: new Date().toISOString(), uid: App.user.id });
+      localStorage.setItem('ru_reports', JSON.stringify(all));
+    } catch {}
+  },
+
+  get(id) {
+    try {
+      return (JSON.parse(localStorage.getItem('ru_reports')) || []).find(r => r.id === id) || null;
     } catch { return null; }
   },
 
-  /** Delete a report */
-  delete(id) {
+  del(id) {
     try {
-      let all = JSON.parse(localStorage.getItem('ara_reports')) || [];
-      all = all.filter(r => r.id !== id);
-      localStorage.setItem('ara_reports', JSON.stringify(all));
+      let all = JSON.parse(localStorage.getItem('ru_reports')) || [];
+      localStorage.setItem('ru_reports', JSON.stringify(all.filter(r => r.id !== id)));
     } catch {}
-  }
+  },
+
+  latest() { return this.all()[0] || null; }
 };
 
-// ── Analyzer ───────────────────────────────────────────────
-const Analyzer = {
-  // Required skills to check against
-  REQUIRED_SKILLS: [
-    'HTML', 'CSS', 'JavaScript', 'React', 'Python',
-    'SQL', 'Git', 'Azure', 'TypeScript', 'Node.js',
-    'MongoDB', 'Docker', 'REST API', 'Agile', 'Java'
-  ],
-
-  BONUS_KEYWORDS: [
-    'leadership', 'communication', 'teamwork', 'problem solving',
-    'project management', 'agile', 'scrum', 'ci/cd', 'aws', 'gcp'
-  ],
-
-  /**
-   * Analyze extracted resume text
-   * Returns: { score, foundSkills, missingSkills, bonusKeywords, suggestions, level }
-   */
-  analyze(text) {
-    const lower = text.toLowerCase();
-
-    // ── Skill matching ──
-    const foundSkills = this.REQUIRED_SKILLS.filter(s => lower.includes(s.toLowerCase()));
-    const missingSkills = this.REQUIRED_SKILLS.filter(s => !lower.includes(s.toLowerCase()));
-    const foundBonus = this.BONUS_KEYWORDS.filter(k => lower.includes(k));
-
-    // ── Score calculation ──
-    const skillScore  = (foundSkills.length / this.REQUIRED_SKILLS.length) * 60; // 60 pts
-    const bonusScore  = Math.min(foundBonus.length * 2, 15);                      // 15 pts
-    const lengthScore = this.calcLengthScore(text);                               // 15 pts
-    const formatScore = this.calcFormatScore(text);                               // 10 pts
-
-    const raw = skillScore + bonusScore + lengthScore + formatScore;
-    const score = Math.round(Math.min(Math.max(raw, 5), 99));
-
-    // ── Suggestions ──
-    const suggestions = this.buildSuggestions(missingSkills, text, foundBonus);
-
-    // ── Level ──
-    const level = score >= 75 ? 'excellent' : score >= 45 ? 'good' : 'poor';
-
-    return { score, foundSkills, missingSkills, bonusKeywords: foundBonus, suggestions, level };
-  },
-
-  calcLengthScore(text) {
-    const words = text.trim().split(/\s+/).length;
-    if (words > 400) return 15;
-    if (words > 200) return 10;
-    if (words > 100) return 5;
-    return 2;
-  },
-
-  calcFormatScore(text) {
-    let score = 0;
-    if (/experience/i.test(text))   score += 2;
-    if (/education/i.test(text))    score += 2;
-    if (/skills/i.test(text))       score += 2;
-    if (/project/i.test(text))      score += 2;
-    if (/@[a-z]+\.[a-z]+/i.test(text)) score += 1; // email
-    if (/\d{3}[-.\s]\d{3}/i.test(text)) score += 1; // phone
-    return Math.min(score, 10);
-  },
-
-  buildSuggestions(missingSkills, text, foundBonus) {
-    const suggestions = [];
-
-    // Skill-based suggestions
-    if (missingSkills.length > 0) {
-      const top = missingSkills.slice(0, 3).join(', ');
-      suggestions.push(`Add prominent mentions of ${top} in your skills section to boost ATS match.`);
-    }
-
-    if (!foundBonus.includes('leadership')) {
-      suggestions.push('Include leadership examples or accomplishments to stand out.');
-    }
-
-    if (!/quantif|%|increased|reduced|improved|achieved/i.test(text)) {
-      suggestions.push('Quantify achievements (e.g. "Increased performance by 30%") to demonstrate impact.');
-    }
-
-    if (!/github|portfolio|linkedin/i.test(text)) {
-      suggestions.push('Add links to your GitHub, LinkedIn or portfolio for recruiters to review your work.');
-    }
-
-    if (!/summary|objective|profile/i.test(text)) {
-      suggestions.push('Include a professional summary at the top of your resume to immediately capture attention.');
-    }
-
-    if (text.trim().split(/\s+/).length < 300) {
-      suggestions.push('Your resume seems short. A 1–2 page resume with detailed experiences performs better with ATS.');
-    }
-
-    if (missingSkills.includes('Git')) {
-      suggestions.push('Mention Git version control experience — it\'s expected in virtually all tech roles.');
-    }
-
-    return suggestions.slice(0, 5); // max 5
-  }
-};
-
-// ── UI Helpers ─────────────────────────────────────────────
-const UI = {
-  /** Show a toast notification */
-  toast(msg, type = 'default', duration = 3500) {
-    let el = document.getElementById('global-toast');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'global-toast';
-      el.className = 'toast';
-      document.body.appendChild(el);
-    }
-    el.textContent = msg;
-    el.className = `toast ${type}`;
-    el.classList.add('show');
-    clearTimeout(el._timer);
-    el._timer = setTimeout(() => el.classList.remove('show'), duration);
-  },
-
-  /** Format a date string */
-  formatDate(iso) {
-    return new Date(iso).toLocaleDateString('en-US', {
-      month: 'short', day: 'numeric', year: 'numeric'
-    });
-  },
-
-  /** Animate a progress circle */
-  animateCircle(el, score) {
-    const circumference = 440;
-    const offset = circumference - (score / 100) * circumference;
-    requestAnimationFrame(() => {
-      el.style.strokeDashoffset = offset;
-    });
-  },
-
-  /** Sidebar toggle */
-  toggleSidebar() {
-    const sidebar = document.querySelector('.sidebar');
-    const overlay = document.querySelector('.sidebar-overlay');
-    sidebar?.classList.toggle('open');
-    overlay?.classList.toggle('show');
-  },
-
-  closeSidebar() {
-    document.querySelector('.sidebar')?.classList.remove('open');
-    document.querySelector('.sidebar-overlay')?.classList.remove('show');
-  }
-};
-
-// ── PDF Text Extraction ────────────────────────────────────
-const PDFReader = {
-  /**
-   * Extract text from a PDF File object using PDF.js
-   * Returns a Promise<string>
-   */
+// ── PDF Reader ────────────────────────────────────────────
+const PDF = {
   async extract(file) {
-    return new Promise((resolve, reject) => {
+    return new Promise((res, rej) => {
       const reader = new FileReader();
       reader.onload = async (e) => {
         try {
-          const typedArr = new Uint8Array(e.target.result);
-
-          // PDF.js loaded globally from CDN
-          const pdf = await pdfjsLib.getDocument({ data: typedArr }).promise;
-          let fullText = '';
-
+          const arr = new Uint8Array(e.target.result);
+          const pdf = await pdfjsLib.getDocument({ data: arr }).promise;
+          let text = '';
           for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);
             const content = await page.getTextContent();
-            const pageText = content.items.map(item => item.str).join(' ');
-            fullText += pageText + '\n';
+            text += content.items.map(x => x.str).join(' ') + '\n';
           }
-
-          resolve(fullText);
-        } catch (err) {
-          reject(err);
-        }
+          res(text.trim());
+        } catch(err) { rej(err); }
       };
-      reader.onerror = () => reject(new Error('Could not read file.'));
+      reader.onerror = () => rej(new Error('File read failed'));
       reader.readAsArrayBuffer(file);
     });
   }
 };
 
-// ── Start on DOM ready ─────────────────────────────────────
+// ── Gemini AI Analyzer ────────────────────────────────────
+const AI = {
+  async analyze(resumeText, apiKey) {
+    // Validate: must have meaningful content
+    const words = resumeText.trim().split(/\s+/).filter(Boolean);
+    if (words.length < 30) {
+      throw new Error('NOT_A_RESUME');
+    }
+
+    // Check it looks like a resume
+    const resumeSignals = ['experience', 'education', 'skills', 'work', 'university',
+      'college', 'degree', 'project', 'job', 'career', 'professional', 'resume',
+      'cv', 'qualification', 'employment', 'position', 'role', 'company', 'intern'];
+    const lower = resumeText.toLowerCase();
+    const signalCount = resumeSignals.filter(s => lower.includes(s)).length;
+
+    if (signalCount < 2) {
+      throw new Error('NOT_A_RESUME');
+    }
+
+    const prompt = `You are an expert ATS (Applicant Tracking System) analyst. Analyze the following resume text and provide a detailed assessment.
+
+RESUME TEXT:
+"""
+${resumeText.slice(0, 4000)}
+"""
+
+Respond ONLY with a valid JSON object (no markdown, no extra text) in this exact format:
+{
+  "atsScore": <number between 1-100>,
+  "scoreLevel": "<excellent|good|poor>",
+  "foundSkills": [<array of technical skills found in resume>],
+  "missingSkills": [<array of important skills missing from this resume based on its field>],
+  "strengths": [<2-3 specific strengths found in this resume>],
+  "suggestions": [<4-5 specific, actionable improvement suggestions based on the actual content>],
+  "summary": "<2 sentence honest assessment of this resume>"
+}
+
+Rules:
+- atsScore: Be honest and realistic. Score based on: keyword density (30%), formatting signals (20%), experience clarity (25%), skills completeness (25%)
+- excellent: 75-100, good: 45-74, poor: 1-44
+- foundSkills: Only list skills explicitly mentioned in the resume
+- missingSkills: Based on the resume's apparent field/role, what important skills are absent
+- suggestions: Must be SPECIFIC to this actual resume content, not generic advice
+- If the text is not a proper resume, set atsScore to 0 and summary to "This does not appear to be a resume."`;
+
+    const response = await fetch(`${GEMINI_URL}?key=${encodeURIComponent(apiKey)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.2, maxOutputTokens: 1024 }
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error?.message || 'API error');
+    }
+
+    const data = await response.json();
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    // Strip markdown fences if present
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const result = JSON.parse(clean);
+
+    // If AI says not a resume
+    if (result.atsScore === 0) throw new Error('NOT_A_RESUME');
+
+    return result;
+  }
+};
+
+// ── UI Utils ──────────────────────────────────────────────
+const UI = {
+  toast(msg, type = 'default', ms = 3200) {
+    let el = document.getElementById('toast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'toast';
+      el.className = 'toast';
+      document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.className = `toast ${type === 'ok' ? 'ok' : type === 'err' ? 'err' : ''}`;
+    el.classList.add('show');
+    clearTimeout(el._t);
+    el._t = setTimeout(() => el.classList.remove('show'), ms);
+  },
+
+  date(iso) {
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  },
+
+  animateRing(el, score) {
+    const circ = 377;
+    requestAnimationFrame(() => {
+      el.style.strokeDashoffset = circ - (score / 100) * circ;
+    });
+  },
+
+  toggleSidebar() {
+    document.querySelector('.sidebar')?.classList.toggle('open');
+    document.querySelector('.overlay')?.classList.toggle('show');
+  },
+
+  closeSidebar() {
+    document.querySelector('.sidebar')?.classList.remove('open');
+    document.querySelector('.overlay')?.classList.remove('show');
+  }
+};
+
+// ── Boot ──────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => App.init());

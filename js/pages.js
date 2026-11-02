@@ -1,222 +1,212 @@
 /* ============================================================
-   AI Resume Analyzer — Pages Renderer
-   Renders all pages into #app container based on hash route
+   ResumeAI v2 — Pages (all 10 pages + event binding)
    ============================================================ */
 
 const Pages = {
-  /** Dispatch to correct page renderer */
-  render(page) {
-    const app = document.getElementById('app');
-    if (!app) return;
 
-    // Fade transition
-    app.style.opacity = '0';
+  render(page) {
+    const root = document.getElementById('app');
+    if (!root) return;
+    root.style.opacity = '0';
     setTimeout(() => {
-      switch (page) {
-        case 'home':      app.innerHTML = this.home();      break;
-        case 'about':     app.innerHTML = this.about();     break;
-        case 'features':  app.innerHTML = this.features();  break;
-        case 'contact':   app.innerHTML = this.contact();   break;
-        case 'login':     app.innerHTML = this.login();     break;
-        case 'signup':    app.innerHTML = this.signup();    break;
-        case 'dashboard': app.innerHTML = this.dashboard(); break;
-        case 'analyzer':  app.innerHTML = this.analyzer();  break;
-        case 'result':    app.innerHTML = this.result();    break;
-        case 'profile':   app.innerHTML = this.profile();   break;
-        default:          app.innerHTML = this.notFound();  break;
-      }
-      app.style.opacity = '1';
-      app.style.transition = 'opacity 0.35s ease';
-      this.bindEvents(page);
-      window.scrollTo(0, 0);
-    }, 120);
+      const map = {
+        home: 'home', about: 'about', features: 'features',
+        contact: 'contact', login: 'login', signup: 'signup',
+        dashboard: 'dashboard', analyzer: 'analyzer',
+        result: 'result', profile: 'profile'
+      };
+      root.innerHTML = this[map[page] || 'notFound']();
+      root.style.transition = 'opacity 0.3s ease';
+      root.style.opacity = '1';
+      this.bind(page);
+    }, 110);
   },
 
-  // ──────────────────────────────────────────────
-  // PUBLIC NAV (shared across public pages)
-  // ──────────────────────────────────────────────
-  publicNav() {
-    const authLinks = App.currentUser
-      ? `<div class="nav-cta">
-           <button class="btn btn-primary btn-sm" onclick="App.navigate('dashboard')">Dashboard</button>
-         </div>`
-      : `<div class="nav-cta">
-           <button class="btn btn-secondary btn-sm" onclick="App.navigate('login')">Login</button>
-           <button class="btn btn-primary btn-sm" onclick="App.navigate('signup')">Sign Up</button>
-         </div>`;
-
+  // ── Shared: Public Nav ──────────────────────────────────
+  pubNav() {
+    const right = App.user
+      ? `<button class="btn btn-primary btn-sm" onclick="App.go('dashboard')">Dashboard</button>`
+      : `<button class="btn btn-ghost btn-sm" onclick="App.go('login')">Log in</button>
+         <button class="btn btn-primary btn-sm" onclick="App.go('signup')">Sign up</button>`;
     return `
-    <nav class="public-nav">
-      <div class="logo-mark" style="display:flex;align-items:center;gap:10px;cursor:pointer" onclick="App.navigate('home')">
-        <div class="logo-icon">✦</div>
-        <span class="logo-text">ResumeAI</span>
+    <nav class="pub-nav">
+      <div class="logo" onclick="App.go('home')">
+        <div class="logo-dot"></div>
+        <span class="logo-name">ResumeAI</span>
       </div>
-      <div class="nav-links">
-        <a onclick="App.navigate('home')" style="cursor:pointer">Home</a>
-        <a onclick="App.navigate('about')" style="cursor:pointer">About</a>
-        <a onclick="App.navigate('features')" style="cursor:pointer">Features</a>
-        <a onclick="App.navigate('contact')" style="cursor:pointer">Contact</a>
+      <div class="pub-nav-links">
+        <a onclick="App.go('home')">Home</a>
+        <a onclick="App.go('about')">About</a>
+        <a onclick="App.go('features')">Features</a>
+        <a onclick="App.go('contact')">Contact</a>
       </div>
-      ${authLinks}
+      <div class="pub-nav-cta">${right}</div>
     </nav>`;
   },
 
-  // ──────────────────────────────────────────────
-  // SIDEBAR (shared across dashboard pages)
-  // ──────────────────────────────────────────────
+  // ── Shared: Sidebar ─────────────────────────────────────
   sidebar(active) {
-    const u = App.currentUser;
-    const links = [
-      { id: 'dashboard', icon: '⊞', label: 'Dashboard' },
-      { id: 'analyzer',  icon: '◈', label: 'Analyze Resume' },
-      { id: 'profile',   icon: '◉', label: 'Profile' },
+    const u = App.user;
+    const items = [
+      { id: 'dashboard', label: 'Dashboard' },
+      { id: 'analyzer',  label: 'Analyze Resume' },
+      { id: 'profile',   label: 'Profile' },
     ];
-    const publicLinks = [
-      { id: 'home',     icon: '⌂', label: 'Home' },
-      { id: 'features', icon: '◇', label: 'Features' },
-      { id: 'contact',  icon: '✉', label: 'Contact' },
+    const pubItems = [
+      { id: 'home',     label: 'Home' },
+      { id: 'features', label: 'Features' },
+      { id: 'contact',  label: 'Contact' },
     ];
-
     return `
-    <div class="sidebar-overlay" onclick="UI.closeSidebar()"></div>
-    <aside class="sidebar" id="sidebar">
-      <div class="sidebar-logo">
-        <div class="logo-mark">
-          <div class="logo-icon">✦</div>
-          <span class="logo-text">ResumeAI</span>
+    <div class="overlay" onclick="UI.closeSidebar()"></div>
+    <aside class="sidebar">
+      <div class="sidebar-top">
+        <div class="logo" onclick="App.go('home');UI.closeSidebar()">
+          <div class="logo-dot"></div>
+          <span class="logo-name">ResumeAI</span>
         </div>
       </div>
       <nav class="sidebar-nav">
-        <div class="nav-section-label">Main</div>
-        ${links.map(l => `
-          <button class="nav-link ${active === l.id ? 'active' : ''}" onclick="App.navigate('${l.id}');UI.closeSidebar()">
-            <span class="nav-icon">${l.icon}</span> ${l.label}
+        <div class="nav-label">Menu</div>
+        ${items.map(x => `
+          <button class="nav-item ${active===x.id?'active':''}" onclick="App.go('${x.id}');UI.closeSidebar()">
+            <span class="nav-dot"></span>${x.label}
           </button>`).join('')}
-        <div class="nav-section-label" style="margin-top:8px">Explore</div>
-        ${publicLinks.map(l => `
-          <button class="nav-link" onclick="App.navigate('${l.id}');UI.closeSidebar()">
-            <span class="nav-icon">${l.icon}</span> ${l.label}
+        <div class="nav-label" style="margin-top:8px">Pages</div>
+        ${pubItems.map(x => `
+          <button class="nav-item" onclick="App.go('${x.id}');UI.closeSidebar()">
+            <span class="nav-dot"></span>${x.label}
           </button>`).join('')}
       </nav>
-      <div class="sidebar-footer">
-        <div class="user-chip">
-          <div class="user-avatar">${u?.avatar || '?'}</div>
-          <div class="user-info">
-            <div class="user-name">${u?.name || 'User'}</div>
-            <div class="user-email">${u?.email || ''}</div>
+      <div class="sidebar-bottom">
+        <div class="user-row">
+          <div class="avatar">${u?.initials||'?'}</div>
+          <div>
+            <div class="user-name-sm">${u?.name||'User'}</div>
+            <div class="user-email-sm">${u?.email||''}</div>
           </div>
         </div>
-        <button class="btn-logout" onclick="Auth.logout()">⎋ &nbsp;Sign Out</button>
+        <button class="btn-logout" onclick="Auth.logout()">Sign out</button>
       </div>
     </aside>`;
   },
 
-  // ──────────────────────────────────────────────
-  // TOPBAR
-  // ──────────────────────────────────────────────
   topbar(title) {
     return `
     <header class="topbar">
-      <div class="topbar-left">
+      <div style="display:flex;align-items:center;gap:12px">
         <button class="hamburger" onclick="UI.toggleSidebar()">☰</button>
         <span class="topbar-title">${title}</span>
       </div>
       <div class="topbar-right">
-        <span class="badge badge-gold">✦ AI Powered</span>
+        <span class="tag tag-green" style="font-size:0.72rem">● Live</span>
       </div>
     </header>`;
   },
 
-  // ──────────────────────────────────────────────
-  // PAGE: HOME
-  // ──────────────────────────────────────────────
+  footer() {
+    return `
+    <footer class="footer">
+      <div class="footer-inner">
+        <div class="logo" onclick="App.go('home')" style="cursor:pointer">
+          <div class="logo-dot"></div>
+          <span class="logo-name">ResumeAI</span>
+        </div>
+        <p class="footer-text">AI-powered resume analysis. Built for job seekers.</p>
+        <div class="footer-links">
+          <a onclick="App.go('about')">About</a>
+          <a onclick="App.go('features')">Features</a>
+          <a onclick="App.go('contact')">Contact</a>
+        </div>
+      </div>
+    </footer>`;
+  },
+
+  // ── HOME ────────────────────────────────────────────────
   home() {
     return `
-    ${this.publicNav()}
-    <main style="padding-top:68px">
-      <!-- Hero -->
+    ${this.pubNav()}
+    <main style="padding-top:60px">
       <section class="hero">
-        <div class="hero-bg"></div>
-        <span class="hero-eyebrow">✦ AI-Powered Career Tools</span>
+        <div class="hero-badge">
+          <span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block"></span>
+          Powered by Gemini AI
+        </div>
         <h1 class="hero-title">
-          Land Your Dream Job<br>with <span class="accent">AI Resume Analyzer</span>
+          Your resume,<br><em>honestly scored</em>
         </h1>
         <p class="hero-sub">
-          Instantly analyze your resume against job requirements, get an ATS score,
-          and receive expert suggestions to maximize your interview chances.
+          Upload your resume and get a real ATS score with specific, actionable feedback — not generic tips.
         </p>
-        <div class="hero-cta">
-          <button class="btn btn-primary btn-lg" onclick="App.navigate(App.currentUser ? 'analyzer' : 'signup')">
-            ◈ &nbsp;Analyze Resume
+        <div class="hero-btns">
+          <button class="btn btn-primary btn-lg" onclick="App.go(App.user?'analyzer':'signup')">
+            Analyze my resume
           </button>
-          <button class="btn btn-secondary btn-lg" onclick="App.navigate('features')">
-            Explore Features
+          <button class="btn btn-ghost btn-lg" onclick="App.go('features')">
+            See how it works
           </button>
         </div>
-        <!-- Floating stats -->
-        <div style="display:flex;gap:20px;margin-top:56px;flex-wrap:wrap;justify-content:center;animation:fadeUp 0.6s 0.5s ease both;opacity:0">
-          ${[['10k+','Resumes Analyzed'],['92%','ATS Accuracy'],['4.9★','User Rating']].map(([v,l]) => `
-          <div style="text-align:center;padding:16px 28px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg)">
-            <div style="font-family:var(--font-display);font-size:1.8rem;font-weight:700;color:var(--gold)">${v}</div>
-            <div style="font-size:0.78rem;color:var(--text-muted);margin-top:3px">${l}</div>
+
+        <div style="display:flex;gap:16px;margin-top:52px;flex-wrap:wrap;justify-content:center;animation:up 0.5s 0.35s ease both;opacity:0">
+          ${[['Real AI','Not keyword matching'],['Private','Runs in your browser'],['Free','No credit card']].map(([v,l])=>`
+          <div style="padding:14px 22px;background:var(--bg-2);border:1px solid var(--line);border-radius:var(--r-lg);text-align:center">
+            <div style="font-family:var(--f-serif);font-size:1.1rem">${v}</div>
+            <div style="font-size:0.75rem;color:var(--ink-3);margin-top:2px">${l}</div>
           </div>`).join('')}
         </div>
       </section>
 
-      <!-- Features Preview -->
       <section class="section">
-        <p class="hero-eyebrow" style="margin:0 auto 16px">What We Offer</p>
-        <h2 class="section-title">Everything You Need to Get Hired</h2>
-        <p class="section-sub">Our AI analyzes your resume across multiple dimensions to give you a comprehensive edge.</p>
-        <div class="features-grid">
+        <p class="section-eyebrow">What you get</p>
+        <h2 class="section-title">Honest analysis,<br>not flattery</h2>
+        <p class="section-sub">Our AI reads your resume the same way an ATS does — and tells you the truth.</p>
+        <div class="feat-grid">
           ${[
-            ['🎯','ATS Score Analysis','Get a precise ATS compatibility score so you know exactly where you stand before applying.'],
-            ['🔍','Skill Gap Detection','Instantly see which in-demand skills are missing from your resume and need to be added.'],
-            ['💡','Smart Suggestions','Receive personalized, actionable improvement tips based on industry best practices.'],
-            ['📄','PDF Parsing','Upload any PDF resume — our engine extracts and analyzes the full content automatically.'],
-            ['📊','History Dashboard','Track all your previous analyses and monitor your improvement over time.'],
-            ['⚡','Instant Results','Get a full analysis in seconds, not minutes. No waiting, no forms, no uploads to a server.'],
-          ].map(([icon, title, desc]) => `
-          <div class="feature-card">
-            <span class="feature-icon">${icon}</span>
-            <h3 class="feature-title">${title}</h3>
-            <p class="feature-desc">${desc}</p>
+            ['◎','Real ATS Score','Gemini AI analyzes your resume and gives a genuine score — not inflated, not random.'],
+            ['◈','Skill Gap Analysis','See exactly which skills are present and which important ones are missing for your field.'],
+            ['→','Specific Suggestions','Actionable improvements based on your actual resume content, not generic advice.'],
+            ['◇','PDF Extraction','Upload any PDF — our engine reads it fully and sends it to AI for analysis.'],
+            ['▣','History Tracking','Every analysis saved. Track your score improve as you update your resume.'],
+            ['◉','Privacy First','Your resume text is only sent to Gemini API. We store nothing on any server.'],
+          ].map(([icon,title,desc])=>`
+          <div class="feat-card">
+            <span class="feat-icon">${icon}</span>
+            <h3 class="feat-title">${title}</h3>
+            <p class="feat-desc">${desc}</p>
           </div>`).join('')}
         </div>
       </section>
 
-      <!-- Testimonials -->
       <section class="section" style="padding-top:0">
-        <h2 class="section-title">Loved by Job Seekers</h2>
-        <p class="section-sub">Thousands of candidates have improved their resumes and landed interviews.</p>
-        <div class="testimonials-grid">
+        <h2 class="section-title">What people say</h2>
+        <p class="section-sub">Job seekers who used ResumeAI to land interviews.</p>
+        <div class="testi-grid">
           ${[
-            ['Sarah K.','Software Engineer','ResumeAI gave me a 78 ATS score and specific tips to reach 91. I got 3 interviews the following week!'],
-            ['Marcus T.','Data Analyst','I had no idea my resume was missing key SQL and Python keywords. Fixed it in 10 minutes and started getting callbacks.'],
-            ['Priya M.','Product Manager','The suggestions were incredibly specific and actionable. Much better than generic resume advice online.'],
-          ].map(([name, role, text]) => `
-          <div class="testimonial-card">
-            <p class="testimonial-text">"${text}"</p>
-            <div class="testimonial-author">
-              <div class="testimonial-avatar">${name[0]}</div>
+            ['Aryan S.','Frontend Dev','I uploaded 3 different versions of my resume and finally understood why version 2 performed best. The AI feedback was shockingly specific.'],
+            ['Neha R.','Data Analyst','Previous tools gave me 90% scores that clearly meant nothing. ResumeAI gave me a 58 and told me exactly why. Fixed it, got callbacks.'],
+            ['Karan M.','CS Graduate','The missing skills section alone was worth it. I had no idea I wasn\'t mentioning Docker anywhere despite using it daily.'],
+          ].map(([n,r,t])=>`
+          <div class="testi-card">
+            <p class="testi-text">"${t}"</p>
+            <div class="testi-author">
+              <div class="testi-av">${n[0]}</div>
               <div>
-                <div class="testimonial-name">${name}</div>
-                <div class="testimonial-role">${role}</div>
+                <div class="testi-name">${n}</div>
+                <div class="testi-role">${r}</div>
               </div>
             </div>
           </div>`).join('')}
         </div>
       </section>
 
-      <!-- CTA Banner -->
-      <section style="padding:0 48px 80px;max-width:1200px;margin:0 auto">
-        <div style="background:linear-gradient(135deg,rgba(212,175,55,0.12),rgba(212,175,55,0.04));border:1px solid var(--border-glow);border-radius:var(--radius-xl);padding:56px;text-align:center">
-          <h2 style="font-family:var(--font-display);font-size:2.4rem;margin-bottom:12px">Ready to Optimize Your Resume?</h2>
-          <p style="color:var(--text-secondary);margin-bottom:28px;max-width:460px;margin-left:auto;margin-right:auto">
-            Join thousands of job seekers who boosted their ATS score with our AI analyzer.
+      <section class="section" style="padding-top:0">
+        <div style="background:var(--bg-2);border:1px solid var(--line);border-radius:var(--r-xl);padding:52px;text-align:center">
+          <h2 style="font-family:var(--f-serif);font-size:2.2rem;margin-bottom:12px">Ready to find out your real score?</h2>
+          <p style="color:var(--ink-2);margin-bottom:28px;max-width:420px;margin-left:auto;margin-right:auto;font-size:0.95rem">
+            Takes 30 seconds. No fluff, no fake 90% scores.
           </p>
-          <button class="btn btn-primary btn-lg" onclick="App.navigate(App.currentUser ? 'analyzer' : 'signup')">
-            Get Started Free →
+          <button class="btn btn-primary btn-lg" onclick="App.go(App.user?'analyzer':'signup')">
+            Get started free
           </button>
         </div>
       </section>
@@ -225,332 +215,235 @@ const Pages = {
     </main>`;
   },
 
-  // ──────────────────────────────────────────────
-  // PAGE: ABOUT
-  // ──────────────────────────────────────────────
+  // ── ABOUT ───────────────────────────────────────────────
   about() {
     return `
-    ${this.publicNav()}
-    <main style="padding-top:68px">
-      <section class="about-hero">
-        <div style="text-align:center;margin-bottom:48px">
-          <span class="hero-eyebrow" style="margin:0 auto 16px">Our Story</span>
-          <h1 class="hero-title" style="font-size:clamp(2.5rem,5vw,4rem)">Built for Job Seekers,<br>by <span class="accent">Builders</span></h1>
-          <p class="hero-sub" style="margin-top:16px">
-            ResumeAI was born from frustration — too many qualified candidates were being filtered out by ATS systems before a human ever read their resume. We built the tool we wished we had.
-          </p>
-        </div>
-      </section>
-
-      <section class="section" style="padding-top:0">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-bottom:60px">
-          <div class="card">
-            <h3 style="font-family:var(--font-display);font-size:1.4rem;margin-bottom:10px">Our Mission</h3>
-            <p style="color:var(--text-secondary);line-height:1.8">
-              To democratize access to career-optimization tools that were previously only available to those with expensive career coaches. Every job seeker deserves a fair shot.
-            </p>
-          </div>
-          <div class="card">
-            <h3 style="font-family:var(--font-display);font-size:1.4rem;margin-bottom:10px">Our Vision</h3>
-            <p style="color:var(--text-secondary);line-height:1.8">
-              A world where your skills and experience — not formatting knowledge or keyword tricks — determine whether you get an interview.
-            </p>
-          </div>
-        </div>
-
-        <h2 class="section-title" style="margin-bottom:32px">Meet the Team</h2>
-        <div class="team-grid">
-          ${[
-            ['AK','Arjun Kumar','Founder & CEO'],
-            ['PS','Priya Sharma','Lead Engineer'],
-            ['MR','Marcus Rivera','AI/ML Engineer'],
-            ['SL','Soo-Yeon Lee','Product Design'],
-          ].map(([init, name, role]) => `
-          <div class="team-card">
-            <div class="team-avatar">${init}</div>
-            <div class="team-name">${name}</div>
-            <div class="team-role">${role}</div>
-          </div>`).join('')}
-        </div>
-      </section>
-
-      ${this.footer()}
-    </main>`;
-  },
-
-  // ──────────────────────────────────────────────
-  // PAGE: FEATURES
-  // ──────────────────────────────────────────────
-  features() {
-    const feats = [
-      ['🤖','AI-Powered Analysis','Advanced keyword extraction and semantic matching against industry job requirements.'],
-      ['📊','ATS Score','Proprietary scoring algorithm modeled after how real Applicant Tracking Systems rank resumes.'],
-      ['🔑','Skill Detection','Automatically identifies 15+ in-demand skills and flags gaps that could cost you the interview.'],
-      ['💡','Tailored Suggestions','Context-aware improvement suggestions specific to your resume content.'],
-      ['📈','Progress Tracking','Every analysis is saved so you can see your score improve over time.'],
-      ['🔒','Privacy First','Your resume never leaves your browser. All analysis is done client-side.'],
-      ['⚡','Instant Results','Full analysis in under 3 seconds — no sign-up required to try.'],
-      ['📱','Mobile Friendly','Works perfectly on any device — desktop, tablet, or phone.'],
-      ['📥','Download Report','Export your analysis as a summary you can refer back to when updating your resume.'],
-    ];
-    return `
-    ${this.publicNav()}
-    <main style="padding-top:68px">
+    ${this.pubNav()}
+    <main style="padding-top:60px">
       <section class="section">
-        <span class="hero-eyebrow" style="margin:0 auto 16px">Capabilities</span>
-        <h1 class="section-title">Powerful Features</h1>
-        <p class="section-sub">Everything built to give you a measurable edge in your job search.</p>
-        <div class="features-grid">
-          ${feats.map(([icon, title, desc]) => `
-          <div class="feature-card">
-            <span class="feature-icon">${icon}</span>
-            <h3 class="feature-title">${title}</h3>
-            <p class="feature-desc">${desc}</p>
+        <p class="section-eyebrow">Our story</p>
+        <h1 class="section-title">Built because<br><em style="font-style:italic;color:var(--ink-2)">fake scores waste time</em></h1>
+        <p style="color:var(--ink-2);max-width:560px;line-height:1.8;margin-bottom:40px">
+          Most resume analyzers give you a 85%+ score regardless of what you upload — because they want you to feel good and come back. We built ResumeAI to do the opposite: give honest, AI-powered feedback that actually helps you improve.
+        </p>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:52px">
+          ${[
+            ['Our Mission','Honest, specific resume feedback powered by real AI — not keyword counters dressed up as analysis.'],
+            ['Our Approach','We send your resume to Gemini AI with a carefully crafted prompt that forces specific, resume-based feedback.'],
+          ].map(([t,d])=>`
+          <div class="card">
+            <h3 class="card-title">${t}</h3>
+            <p style="color:var(--ink-2);font-size:0.875rem;line-height:1.7">${d}</p>
+          </div>`).join('')}
+        </div>
+
+        <h2 class="section-title" style="margin-bottom:28px">The team</h2>
+        <div class="team-grid">
+          ${[['RK','Ritik Kumar','Founder'],['PS','Priya S.','AI Engineer'],['AM','Ankit M.','Frontend'],['SK','Sara K.','Product']].map(([i,n,r])=>`
+          <div class="team-card">
+            <div class="team-av">${i}</div>
+            <div class="team-name">${n}</div>
+            <div class="team-role">${r}</div>
           </div>`).join('')}
         </div>
       </section>
-
-      <!-- Comparison table -->
-      <section class="section" style="padding-top:0">
-        <h2 class="section-title" style="margin-bottom:32px">Why ResumeAI?</h2>
-        <div class="card" style="overflow:auto">
-          <table style="width:100%;border-collapse:collapse;font-size:0.9rem">
-            <thead>
-              <tr style="border-bottom:1px solid var(--border)">
-                <th style="text-align:left;padding:12px 16px;color:var(--text-muted);font-weight:500">Feature</th>
-                <th style="padding:12px 16px;color:var(--gold);font-weight:600">ResumeAI</th>
-                <th style="padding:12px 16px;color:var(--text-muted);font-weight:500">Others</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${[
-                ['Instant ATS Score','✓','✓'],
-                ['Client-side Privacy','✓','✗'],
-                ['Skill Gap Analysis','✓','Partial'],
-                ['Actionable Suggestions','✓','Generic'],
-                ['Free to Use','✓','Paid'],
-                ['No Account Required','Try it free','Required'],
-              ].map(([f,a,b]) => `
-              <tr style="border-bottom:1px solid var(--border)">
-                <td style="padding:12px 16px;color:var(--text-secondary)">${f}</td>
-                <td style="padding:12px 16px;text-align:center;color:var(--success);font-weight:600">${a}</td>
-                <td style="padding:12px 16px;text-align:center;color:var(--text-muted)">${b}</td>
-              </tr>`).join('')}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
       ${this.footer()}
     </main>`;
   },
 
-  // ──────────────────────────────────────────────
-  // PAGE: CONTACT
-  // ──────────────────────────────────────────────
+  // ── FEATURES ────────────────────────────────────────────
+  features() {
+    return `
+    ${this.pubNav()}
+    <main style="padding-top:60px">
+      <section class="section">
+        <p class="section-eyebrow">Capabilities</p>
+        <h1 class="section-title">Everything you need<br>to get hired</h1>
+        <p class="section-sub">Built around one goal: give you the most honest, useful resume feedback possible.</p>
+        <div class="feat-grid">
+          ${[
+            ['◎','Gemini AI Analysis','Your resume text is analyzed by Google\'s Gemini AI — not a keyword counter.'],
+            ['◈','Honest ATS Score','Scores based on real factors: keyword density, formatting, experience clarity, skills.'],
+            ['→','Field-Specific Gaps','AI detects your field and suggests missing skills relevant to your actual career path.'],
+            ['▣','Specific Suggestions','Every suggestion references something actually in (or missing from) your resume.'],
+            ['◇','Resume Validation','Random PDFs are rejected. Only actual resumes get analyzed.'],
+            ['◉','Full History','All past analyses stored locally. View, compare, delete.'],
+            ['⊞','Download Report','Export your analysis as a text file for offline reference.'],
+            ['◌','Privacy','Your resume never stored on our servers. API call to Gemini only.'],
+            ['⚡','Fast','Full AI analysis in under 10 seconds.'],
+          ].map(([i,t,d])=>`
+          <div class="feat-card">
+            <span class="feat-icon">${i}</span>
+            <h3 class="feat-title">${t}</h3>
+            <p class="feat-desc">${d}</p>
+          </div>`).join('')}
+        </div>
+      </section>
+      ${this.footer()}
+    </main>`;
+  },
+
+  // ── CONTACT ─────────────────────────────────────────────
   contact() {
     return `
-    ${this.publicNav()}
-    <main style="padding-top:68px">
+    ${this.pubNav()}
+    <main style="padding-top:60px">
       <section class="section">
-        <span class="hero-eyebrow" style="margin:0 auto 16px">Get In Touch</span>
-        <h1 class="section-title">Contact Us</h1>
-        <p class="section-sub">Have questions or feedback? We'd love to hear from you.</p>
+        <p class="section-eyebrow">Get in touch</p>
+        <h1 class="section-title">Contact us</h1>
+        <p class="section-sub">Have feedback or a question? We read every message.</p>
 
-        <div class="contact-grid" style="max-width:900px;margin:0 auto">
-          <!-- Contact info -->
-          <div style="display:flex;flex-direction:column;gap:16px">
+        <div style="display:grid;grid-template-columns:1fr 1.4fr;gap:28px;max-width:820px">
+          <div style="display:flex;flex-direction:column;gap:12px">
+            ${[['Email','hello@resumeai.app'],['Twitter','@resumeai'],['Location','Remote — India']].map(([l,v])=>`
+            <div class="card" style="padding:16px 18px">
+              <div style="font-size:0.72rem;color:var(--ink-3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">${l}</div>
+              <div style="font-size:0.875rem;font-weight:500">${v}</div>
+            </div>`).join('')}
+          </div>
+          <div class="card">
+            <h3 class="card-title">Send a message</h3>
+            <div class="field">
+              <label class="label">Name</label>
+              <input class="input" id="c-name" placeholder="Your name">
+            </div>
+            <div class="field">
+              <label class="label">Email</label>
+              <input class="input" id="c-email" type="email" placeholder="you@example.com">
+            </div>
+            <div class="field">
+              <label class="label">Message</label>
+              <textarea class="input" id="c-msg" placeholder="What's on your mind?"></textarea>
+            </div>
+            <button class="btn btn-primary btn-full" id="c-send">Send message</button>
+          </div>
+        </div>
+      </section>
+      ${this.footer()}
+    </main>`;
+  },
+
+  // ── LOGIN ───────────────────────────────────────────────
+  login() {
+    return `
+    <div class="auth-wrap">
+      <div class="auth-box page-in">
+        <div class="auth-logo">
+          <div class="logo" style="justify-content:center;cursor:pointer" onclick="App.go('home')">
+            <div class="logo-dot"></div>
+            <span class="logo-name">ResumeAI</span>
+          </div>
+        </div>
+        <h2 class="auth-title">Welcome back</h2>
+        <p class="auth-sub">Sign in to your account</p>
+        <div class="field">
+          <label class="label">Email</label>
+          <input class="input" id="l-email" type="email" placeholder="you@example.com">
+        </div>
+        <div class="field">
+          <label class="label">Password</label>
+          <input class="input" id="l-pass" type="password" placeholder="••••••••">
+        </div>
+        <div class="err-msg" id="l-err"></div>
+        <button class="btn btn-primary btn-full" style="margin-top:8px" id="l-btn">Sign in</button>
+        <p class="auth-switch">No account? <a onclick="App.go('signup')">Sign up free</a></p>
+        <p style="text-align:center;margin-top:8px"><a onclick="App.go('home')" style="font-size:0.78rem;color:var(--ink-3);cursor:pointer">← Back to home</a></p>
+      </div>
+    </div>`;
+  },
+
+  // ── SIGNUP ──────────────────────────────────────────────
+  signup() {
+    return `
+    <div class="auth-wrap">
+      <div class="auth-box page-in">
+        <div class="auth-logo">
+          <div class="logo" style="justify-content:center;cursor:pointer" onclick="App.go('home')">
+            <div class="logo-dot"></div>
+            <span class="logo-name">ResumeAI</span>
+          </div>
+        </div>
+        <h2 class="auth-title">Create account</h2>
+        <p class="auth-sub">Start analyzing your resume</p>
+        <div class="field">
+          <label class="label">Full name</label>
+          <input class="input" id="s-name" placeholder="Jane Smith">
+        </div>
+        <div class="field">
+          <label class="label">Email</label>
+          <input class="input" id="s-email" type="email" placeholder="you@example.com">
+        </div>
+        <div class="field">
+          <label class="label">Password <span style="color:var(--ink-3);font-size:0.72rem">(min 6 chars)</span></label>
+          <input class="input" id="s-pass" type="password" placeholder="••••••••">
+        </div>
+        <div class="err-msg" id="s-err"></div>
+        <button class="btn btn-primary btn-full" style="margin-top:8px" id="s-btn">Create account</button>
+        <p class="auth-switch">Have an account? <a onclick="App.go('login')">Sign in</a></p>
+        <p style="text-align:center;margin-top:8px"><a onclick="App.go('home')" style="font-size:0.78rem;color:var(--ink-3);cursor:pointer">← Back to home</a></p>
+      </div>
+    </div>`;
+  },
+
+  // ── DASHBOARD ───────────────────────────────────────────
+  dashboard() {
+    const u = App.user;
+    const reports = Reports.all();
+    const avg = reports.length ? Math.round(reports.reduce((s,r)=>s+r.atsScore,0)/reports.length) : 0;
+
+    const historyHTML = reports.length === 0
+      ? `<div class="empty"><div class="empty-icon">◌</div><p class="empty-text">No analyses yet. Upload your first resume.</p>
+         <button class="btn btn-primary" style="margin-top:14px" onclick="App.go('analyzer')">Analyze resume</button></div>`
+      : `<div class="history-list">
+          ${reports.slice(0,8).map(r=>`
+          <div class="h-card">
+            <div class="h-score ${r.scoreLevel}">${r.atsScore}</div>
+            <div class="h-info">
+              <div class="h-name">📄 ${r.filename}</div>
+              <div class="h-date">${UI.date(r.date)}</div>
+              <div class="h-bar"><div class="h-bar-fill ${r.scoreLevel}" style="width:${r.atsScore}%"></div></div>
+            </div>
+            <div style="display:flex;gap:6px;flex-shrink:0">
+              <button class="btn btn-ghost btn-sm" onclick="window.__rid='${r.id}';App.go('result')">View</button>
+              <button class="btn btn-sm" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-line)" onclick="Reports.del('${r.id}');App.go('dashboard')">✕</button>
+            </div>
+          </div>`).join('')}
+        </div>`;
+
+    return `
+    <div class="app">
+      ${this.sidebar('dashboard')}
+      <div class="main">
+        ${this.topbar('Dashboard')}
+        <div class="body page-in">
+          <div style="margin-bottom:24px">
+            <h1 style="font-family:var(--f-serif);font-size:1.8rem;margin-bottom:3px">Good to see you, ${u?.name?.split(' ')[0]||'there'}</h1>
+            <p style="color:var(--ink-3);font-size:0.875rem">Here's your resume analysis overview.</p>
+          </div>
+
+          <div class="stats">
             ${[
-              ['📧','Email','r.sharmaaa2006@gmail.com'],
-              ['🐦','github','https://github.com/ritik-sharmaaa'],
-              ['💼','LinkedIn','https://www.linkedin.com/in/ritik-sharma-93056638b/'],
-              ['📍','Location','Delhi, India'],
-            ].map(([icon, label, val]) => `
-            <div class="card" style="display:flex;align-items:center;gap:14px">
-              <span style="font-size:1.4rem">${icon}</span>
-              <div>
-                <div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em">${label}</div>
-                <div style="font-weight:500;margin-top:2px">${val}</div>
-              </div>
+              [reports.length,'Analyses'],
+              [avg ? avg+'%' : '—','Avg Score'],
+              [reports.length ? reports[0].atsScore+'%' : '—','Latest'],
+              [reports.filter(r=>r.scoreLevel==='excellent').length,'Excellent'],
+            ].map(([v,l])=>`
+            <div class="stat">
+              <div class="stat-val">${v}</div>
+              <div class="stat-lbl">${l}</div>
             </div>`).join('')}
           </div>
 
-          <!-- Contact form -->
+          <div style="display:flex;gap:10px;margin-bottom:24px">
+            <button class="btn btn-primary" onclick="App.go('analyzer')">New analysis</button>
+            <button class="btn btn-ghost" onclick="App.go('profile')">Edit profile</button>
+          </div>
+
           <div class="card">
-            <h3 class="card-title" style="margin-bottom:20px">Send a Message</h3>
-            <div class="form-group">
-              <label class="form-label">Your Name</label>
-              <input class="form-input" id="contact-name" type="text" placeholder="Jane Smith">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Email Address</label>
-              <input class="form-input" id="contact-email" type="email" placeholder="jane@gmail.com">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Message</label>
-              <textarea class="form-input" id="contact-msg" placeholder="Tell us how we can help…"></textarea>
-            </div>
-            <button class="btn btn-primary" style="width:100%" id="contact-submit">Send Message ✉</button>
-          </div>
-        </div>
-      </section>
-      ${this.footer()}
-    </main>`;
-  },
-
-  // ──────────────────────────────────────────────
-  // PAGE: LOGIN
-  // ──────────────────────────────────────────────
-  login() {
-    return `
-    <div class="auth-page">
-      <div class="auth-card page-content">
-        <div class="auth-logo">
-          <div class="logo-icon" style="width:44px;height:44px;font-size:22px;margin:0 auto 8px">✦</div>
-          <div class="logo-text">ResumeAI</div>
-        </div>
-        <h2 class="auth-title">Welcome Back</h2>
-        <p class="auth-sub">Sign in to access your dashboard and resume history.</p>
-
-        <div class="form-group">
-          <label class="form-label">Email Address</label>
-          <input class="form-input" id="login-email" type="email" placeholder="you@example.com" autocomplete="email">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Password</label>
-          <input class="form-input" id="login-password" type="password" placeholder="••••••••" autocomplete="current-password">
-        </div>
-        <div id="login-error" style="color:var(--error);font-size:0.82rem;margin-bottom:12px;display:none"></div>
-        <button class="btn btn-primary" style="width:100%;margin-top:4px" id="login-btn">Sign In →</button>
-
-        <div class="divider"></div>
-        <p class="auth-switch">Don't have an account? <a onclick="App.navigate('signup')" style="cursor:pointer">Sign up free</a></p>
-        <p style="text-align:center;margin-top:8px;font-size:0.78rem;color:var(--text-muted)">
-          <a onclick="App.navigate('home')" style="cursor:pointer;color:var(--text-muted)">← Back to Home</a>
-        </p>
-      </div>
-    </div>`;
-  },
-
-  // ──────────────────────────────────────────────
-  // PAGE: SIGNUP
-  // ──────────────────────────────────────────────
-  signup() {
-    return `
-    <div class="auth-page">
-      <div class="auth-card page-content">
-        <div class="auth-logo">
-          <div class="logo-icon" style="width:44px;height:44px;font-size:22px;margin:0 auto 8px">✦</div>
-          <div class="logo-text">ResumeAI</div>
-        </div>
-        <h2 class="auth-title">Create Account</h2>
-        <p class="auth-sub">Start analyzing your resume and land more interviews.</p>
-
-        <div class="form-group">
-          <label class="form-label">Full Name</label>
-          <input class="form-input" id="signup-name" type="text" placeholder="Jane Smith" autocomplete="name">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Email Address</label>
-          <input class="form-input" id="signup-email" type="email" placeholder="you@example.com" autocomplete="email">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Password <span style="color:var(--text-muted);font-size:0.75rem">(min. 6 characters)</span></label>
-          <input class="form-input" id="signup-password" type="password" placeholder="••••••••" autocomplete="new-password">
-        </div>
-        <div id="signup-error" style="color:var(--error);font-size:0.82rem;margin-bottom:12px;display:none"></div>
-        <button class="btn btn-primary" style="width:100%;margin-top:4px" id="signup-btn">Create Account →</button>
-
-        <div class="divider"></div>
-        <p class="auth-switch">Already have an account? <a onclick="App.navigate('login')" style="cursor:pointer">Sign in</a></p>
-        <p style="text-align:center;margin-top:8px;font-size:0.78rem;color:var(--text-muted)">
-          <a onclick="App.navigate('home')" style="cursor:pointer;color:var(--text-muted)">← Back to Home</a>
-        </p>
-      </div>
-    </div>`;
-  },
-
-  // ──────────────────────────────────────────────
-  // PAGE: DASHBOARD
-  // ──────────────────────────────────────────────
-  dashboard() {
-    const u = App.currentUser;
-    const reports = Reports.getAll();
-    const avgScore = reports.length
-      ? Math.round(reports.reduce((s,r) => s + r.score, 0) / reports.length)
-      : 0;
-
-    const historyHTML = reports.length === 0
-      ? `<div class="empty-state">
-           <div class="empty-state-icon">📄</div>
-           <p class="empty-state-text">No analyses yet. Upload your first resume!</p>
-           <button class="btn btn-primary" style="margin-top:16px" onclick="App.navigate('analyzer')">Analyze Resume →</button>
-         </div>`
-      : `<div class="history-grid">
-           ${reports.slice(0, 6).map(r => `
-           <div class="history-card">
-             <div class="history-meta">
-               <span class="history-filename">📄 ${r.filename}</span>
-               <span class="badge ${r.level === 'excellent' ? 'badge-green' : r.level === 'good' ? 'badge-gold' : 'badge-red'}">${r.score}%</span>
-             </div>
-             <div class="history-score-bar">
-               <div class="history-score-fill" style="width:${r.score}%"></div>
-             </div>
-             <div class="history-footer">
-               <span style="font-size:0.75rem;color:var(--text-muted)">${UI.formatDate(r.date)}</span>
-               <div style="display:flex;gap:6px">
-                 <button class="btn btn-secondary btn-sm" onclick="App.navigate('result');window.__viewReportId='${r.id}'">View</button>
-                 <button class="btn btn-sm" style="background:rgba(245,101,101,0.1);color:var(--error);border:1px solid rgba(245,101,101,0.2)" onclick="Reports.delete('${r.id}');App.navigate('dashboard')">✕</button>
-               </div>
-             </div>
-           </div>`).join('')}
-         </div>`;
-
-    return `
-    <div class="page-wrapper">
-      ${this.sidebar('dashboard')}
-      <div class="main-content">
-        ${this.topbar('Dashboard')}
-        <div class="page-body page-content">
-          <!-- Welcome -->
-          <div style="margin-bottom:28px">
-            <h1 style="font-family:var(--font-display);font-size:2rem;font-weight:700;margin-bottom:4px">
-              Welcome back, ${u?.name?.split(' ')[0] || 'there'} 👋
-            </h1>
-            <p style="color:var(--text-muted)">Here's an overview of your resume analysis activity.</p>
-          </div>
-
-          <!-- Stats -->
-          <div class="stats-grid">
-            <div class="stat-card">
-              <div class="stat-icon gold">📊</div>
-              <div><div class="stat-value">${reports.length}</div><div class="stat-label">Analyses Run</div></div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-icon green">🎯</div>
-              <div><div class="stat-value">${avgScore || '—'}${reports.length ? '%' : ''}</div><div class="stat-label">Avg ATS Score</div></div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-icon blue">⚡</div>
-              <div><div class="stat-value">${reports.length > 0 ? reports[0].score + '%' : '—'}</div><div class="stat-label">Latest Score</div></div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-icon gold">✦</div>
-              <div><div class="stat-value">${reports.filter(r => r.level === 'excellent').length}</div><div class="stat-label">Excellent Scores</div></div>
-            </div>
-          </div>
-
-          <!-- Quick Actions -->
-          <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:28px">
-            <button class="btn btn-primary" onclick="App.navigate('analyzer')">◈ &nbsp;New Analysis</button>
-            <button class="btn btn-secondary" onclick="App.navigate('profile')">◉ &nbsp;Edit Profile</button>
-          </div>
-
-          <!-- History -->
-          <div class="card">
-            <div class="card-header">
-              <h3 class="card-title">Recent Analyses</h3>
-              ${reports.length > 0 ? `<span class="badge badge-gold">${reports.length} total</span>` : ''}
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+              <h3 class="card-title" style="margin-bottom:0">Recent analyses</h3>
+              ${reports.length ? `<span class="tag tag-gray">${reports.length} total</span>` : ''}
             </div>
             ${historyHTML}
           </div>
@@ -559,58 +452,56 @@ const Pages = {
     </div>`;
   },
 
-  // ──────────────────────────────────────────────
-  // PAGE: ANALYZER
-  // ──────────────────────────────────────────────
+  // ── ANALYZER ────────────────────────────────────────────
   analyzer() {
     return `
-    <div class="page-wrapper">
+    <div class="app">
       ${this.sidebar('analyzer')}
-      <div class="main-content">
-        ${this.topbar('Resume Analyzer')}
-        <div class="page-body page-content">
-          <div style="max-width:680px">
-            <h1 style="font-family:var(--font-display);font-size:2rem;margin-bottom:6px">Analyze Your Resume</h1>
-            <p style="color:var(--text-muted);margin-bottom:28px">Upload a PDF resume. Our AI extracts the text and provides an instant ATS score with improvement suggestions.</p>
+      <div class="main">
+        ${this.topbar('Analyze Resume')}
+        <div class="body page-in">
+          <div style="max-width:620px">
+            <h1 style="font-family:var(--f-serif);font-size:1.8rem;margin-bottom:6px">Upload your resume</h1>
+            <p style="color:var(--ink-3);font-size:0.875rem;margin-bottom:24px">
+              PDF only. Our AI reads your resume and gives you a real ATS score — not a fake one.
+            </p>
 
-            <!-- Upload Zone -->
-            <div class="card" style="margin-bottom:20px">
-              <div class="upload-zone" id="upload-zone">
-                <input type="file" id="resume-file" accept=".pdf" onchange="handleFileSelect(event)">
-                <div class="upload-icon">📄</div>
-                <div class="upload-title">Drop your PDF here or click to browse</div>
-                <div class="upload-subtitle">Supports PDF files up to 10MB</div>
+            <div class="card" style="margin-bottom:16px">
+              <div class="upload-area" id="drop-zone">
+                <input type="file" id="resume-file" accept=".pdf" onchange="handleFile(event)">
+                <div class="upload-icon">↑</div>
+                <div class="upload-title">Drop PDF here or click to browse</div>
+                <div class="upload-sub">PDF resumes only · Max 10MB</div>
               </div>
-              <div id="file-selected" style="display:none;margin-top:14px;display:none">
-                <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--gold-dim);border:1px solid rgba(212,175,55,0.2);border-radius:var(--radius-md)">
-                  <span>📄</span>
-                  <span id="file-name" style="font-size:0.88rem;font-weight:500;flex:1"></span>
-                  <span id="file-size" style="font-size:0.75rem;color:var(--text-muted)"></span>
-                </div>
+              <div class="file-pill" id="file-pill">
+                <span>📄</span>
+                <span id="file-name" style="flex:1;font-size:0.84rem;font-weight:500"></span>
+                <span id="file-size" style="font-size:0.75rem;color:var(--ink-3)"></span>
               </div>
             </div>
 
-            <!-- Skills to check -->
-            <div class="card" style="margin-bottom:20px">
-              <h3 class="card-title" style="font-size:1.1rem;margin-bottom:14px">Skills We Check For</h3>
-              <div class="skill-tags">
-                ${Analyzer.REQUIRED_SKILLS.map(s => `<span class="skill-tag found">${s}</span>`).join('')}
-              </div>
-              <p style="font-size:0.78rem;color:var(--text-muted);margin-top:12px">
-                + Bonus keywords including leadership, communication, Agile, CI/CD, cloud platforms and more.
-              </p>
+            <div class="card" style="margin-bottom:16px">
+              <label class="label" for="gemini-key">Gemini API key</label>
+              <input class="input" id="gemini-key" type="password" autocomplete="off" placeholder="Enter your key for this analysis">
+              <p style="font-size:0.78rem;color:var(--ink-3);margin-top:8px">Used for this request only. The key is not saved in the app.</p>
             </div>
 
-            <!-- Action -->
-            <div id="analyze-error" style="color:var(--error);font-size:0.85rem;margin-bottom:12px;display:none"></div>
-            <button class="btn btn-primary btn-lg" id="analyze-btn" style="width:100%">
-              ◈ &nbsp;Run AI Analysis
+            <div class="card" style="margin-bottom:16px">
+              <h3 class="card-title" style="font-size:0.95rem;margin-bottom:10px">What the AI checks</h3>
+              <div style="font-size:0.82rem;color:var(--ink-2);line-height:1.7">
+                Gemini AI analyzes: technical skills, experience clarity, formatting signals, keyword density, field-specific gaps, quantified achievements, and overall ATS compatibility.
+              </div>
+            </div>
+
+            <div class="err-msg" id="a-err" style="margin-bottom:12px;font-size:0.875rem"></div>
+
+            <button class="btn btn-primary btn-full btn-lg" id="a-btn">
+              Run AI analysis
             </button>
 
-            <!-- Loading state -->
-            <div id="analyze-loading" style="display:none;text-align:center;padding:32px 0">
+            <div class="loading-wrap" id="a-load">
               <div class="spinner"></div>
-              <p style="margin-top:14px;color:var(--text-muted);font-size:0.88rem" id="loading-text">Extracting text from PDF…</p>
+              <p class="loading-text" id="a-load-txt">Extracting text from PDF…</p>
             </div>
           </div>
         </div>
@@ -618,464 +509,423 @@ const Pages = {
     </div>`;
   },
 
-  // ──────────────────────────────────────────────
-  // PAGE: RESULT
-  // ──────────────────────────────────────────────
+  // ── RESULT ──────────────────────────────────────────────
   result() {
-    // Grab report — either from a "view" click or the last analysis
-    const id = window.__viewReportId;
-    let report = id ? Reports.getById(id) : null;
-    if (!report) {
-      const all = Reports.getAll();
-      report = all[0] || null;
-    }
-    window.__viewReportId = null;
+    const id = window.__rid;
+    let r = id ? Reports.get(id) : Reports.latest();
+    window.__rid = null;
 
-    if (!report) {
-      return `
-      <div class="page-wrapper">
-        ${this.sidebar('result')}
-        <div class="main-content">
-          ${this.topbar('Result')}
-          <div class="page-body page-content">
-            <div class="empty-state">
-              <div class="empty-state-icon">📊</div>
-              <p class="empty-state-text">No result to display.</p>
-              <button class="btn btn-primary" style="margin-top:16px" onclick="App.navigate('analyzer')">Analyze a Resume</button>
-            </div>
+    if (!r) return `
+    <div class="app">
+      ${this.sidebar('')}
+      <div class="main">
+        ${this.topbar('Result')}
+        <div class="body page-in">
+          <div class="empty">
+            <div class="empty-icon">◌</div>
+            <p class="empty-text">No result to display.</p>
+            <button class="btn btn-primary" style="margin-top:14px" onclick="App.go('analyzer')">Analyze a resume</button>
           </div>
         </div>
-      </div>`;
-    }
+      </div>
+    </div>`;
 
-    const scoreClass = report.level === 'excellent' ? 'score-excellent' : report.level === 'good' ? 'score-good' : 'score-poor';
-    const scoreLabel = report.level === 'excellent' ? 'Excellent' : report.level === 'good' ? 'Good' : 'Needs Work';
-    const circumference = 440;
-    const offset = circumference - (report.score / 100) * circumference;
+    const circ = 377;
+    const offset = circ - (r.atsScore / 100) * circ;
+    const scoreColor = r.scoreLevel==='excellent' ? 'var(--green)' : r.scoreLevel==='good' ? 'var(--amber)' : 'var(--red)';
+    const scoreWord  = r.scoreLevel==='excellent' ? 'Excellent' : r.scoreLevel==='good' ? 'Good' : 'Needs work';
 
     return `
-    <div class="page-wrapper">
+    <div class="app">
       ${this.sidebar('')}
-      <div class="main-content">
+      <div class="main">
         ${this.topbar('Analysis Result')}
-        <div class="page-body page-content">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+        <div class="body page-in">
+
+          <!-- Header row -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:10px">
             <div>
-              <h1 style="font-family:var(--font-display);font-size:1.8rem;margin-bottom:3px">Resume Analysis Report</h1>
-              <p style="color:var(--text-muted);font-size:0.85rem">📄 ${report.filename} &nbsp;·&nbsp; ${UI.formatDate(report.date)}</p>
+              <h1 style="font-family:var(--f-serif);font-size:1.7rem;margin-bottom:3px">Resume Analysis</h1>
+              <p style="font-size:0.8rem;color:var(--ink-3)">📄 ${r.filename} · ${UI.date(r.date)}</p>
             </div>
-            <div style="display:flex;gap:10px">
-              <button class="btn btn-secondary btn-sm" onclick="App.navigate('analyzer')">New Analysis</button>
-              <button class="btn btn-primary btn-sm" id="download-btn">⤓ &nbsp;Download</button>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-ghost btn-sm" onclick="App.go('dashboard')">← Dashboard</button>
+              <button class="btn btn-ghost btn-sm" onclick="App.go('analyzer')">New analysis</button>
+              <button class="btn btn-primary btn-sm" id="dl-btn">Download</button>
             </div>
           </div>
 
-          <div class="result-main">
-            <!-- Score + top row -->
-            <div style="display:grid;grid-template-columns:auto 1fr;gap:20px;align-items:start">
-              <!-- Circular Score -->
-              <div class="card ${scoreClass}" style="min-width:200px;text-align:center">
-                <div class="progress-ring-container" style="margin:0 auto 8px">
-                  <svg width="160" height="160" viewBox="0 0 160 160">
-                    <defs>
-                      <linearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" style="stop-color:#d4af37"/>
-                        <stop offset="100%" style="stop-color:#f0d060"/>
-                      </linearGradient>
-                    </defs>
-                    <circle class="progress-ring-bg" cx="80" cy="80" r="70"/>
-                    <circle class="progress-ring-fill" id="score-ring" cx="80" cy="80" r="70" style="stroke-dashoffset:${offset}"/>
-                  </svg>
-                  <div class="progress-center">
-                    <div class="progress-score">${report.score}</div>
-                    <div class="progress-label">ATS Score</div>
-                  </div>
-                </div>
-                <div class="score-interpretation ${report.level}">${scoreLabel}</div>
-              </div>
-
-              <!-- Summary card -->
-              <div class="card">
-                <h3 class="card-title" style="font-size:1.1rem;margin-bottom:14px">Quick Summary</h3>
-                <div style="display:flex;flex-direction:column;gap:10px">
-                  <div style="display:flex;justify-content:space-between;font-size:0.88rem">
-                    <span style="color:var(--text-muted)">Skills Found</span>
-                    <span style="color:var(--success);font-weight:600">${report.foundSkills.length} / ${Analyzer.REQUIRED_SKILLS.length}</span>
-                  </div>
-                  <div style="height:4px;background:var(--border);border-radius:2px">
-                    <div style="height:100%;width:${(report.foundSkills.length/Analyzer.REQUIRED_SKILLS.length)*100}%;background:var(--success);border-radius:2px"></div>
-                  </div>
-                  <div style="display:flex;justify-content:space-between;font-size:0.88rem;margin-top:4px">
-                    <span style="color:var(--text-muted)">Missing Skills</span>
-                    <span style="color:var(--error);font-weight:600">${report.missingSkills.length}</span>
-                  </div>
-                  <div style="display:flex;justify-content:space-between;font-size:0.88rem">
-                    <span style="color:var(--text-muted)">Bonus Keywords</span>
-                    <span style="color:var(--gold);font-weight:600">${report.bonusKeywords?.length || 0}</span>
-                  </div>
-                  <div style="display:flex;justify-content:space-between;font-size:0.88rem">
-                    <span style="color:var(--text-muted)">Suggestions</span>
-                    <span style="color:var(--info);font-weight:600">${report.suggestions.length}</span>
-                  </div>
+          <!-- Score + summary row -->
+          <div class="result-grid" style="margin-bottom:18px">
+            <!-- Ring -->
+            <div class="card" style="text-align:center;padding:24px 16px">
+              <div class="ring-wrap">
+                <svg width="140" height="140" viewBox="0 0 140 140">
+                  <circle class="ring-bg" cx="70" cy="70" r="60"/>
+                  <circle class="ring-fill ${r.scoreLevel}" id="ring" cx="70" cy="70" r="60" style="stroke-dashoffset:${offset}"/>
+                </svg>
+                <div class="ring-center">
+                  <div class="ring-score" style="color:${scoreColor}">${r.atsScore}</div>
+                  <div class="ring-label">ATS Score</div>
                 </div>
               </div>
+              <div style="margin-top:10px;font-size:0.8rem;font-weight:600;color:${scoreColor}">${scoreWord}</div>
             </div>
 
-            <!-- Skills row -->
-            <div class="result-grid">
-              <div class="card">
-                <h3 class="card-title" style="font-size:1.1rem">✓ Found Skills</h3>
-                <div class="skill-tags">
-                  ${report.foundSkills.length
-                    ? report.foundSkills.map(s => `<span class="skill-tag found">${s}</span>`).join('')
-                    : '<span style="color:var(--text-muted);font-size:0.85rem">No skills detected</span>'}
-                </div>
-              </div>
-              <div class="card">
-                <h3 class="card-title" style="font-size:1.1rem">✗ Missing Skills</h3>
-                <div class="skill-tags">
-                  ${report.missingSkills.length
-                    ? report.missingSkills.map(s => `<span class="skill-tag missing">${s}</span>`).join('')
-                    : '<span style="color:var(--success);font-size:0.85rem">All skills detected!</span>'}
-                </div>
-              </div>
-            </div>
-
-            <!-- Suggestions -->
+            <!-- Summary -->
             <div class="card">
-              <h3 class="card-title" style="font-size:1.1rem">💡 Improvement Suggestions</h3>
-              <div class="suggestions-list">
-                ${report.suggestions.map(s => `<div class="suggestion-item">${s}</div>`).join('')}
+              <h3 class="card-title">AI Summary</h3>
+              <p style="color:var(--ink-2);font-size:0.875rem;line-height:1.75;margin-bottom:16px">${r.summary||'Analysis complete.'}</p>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                ${[
+                  ['Skills found', r.foundSkills?.length||0, 'var(--green)'],
+                  ['Missing skills', r.missingSkills?.length||0, 'var(--red)'],
+                  ['Suggestions', r.suggestions?.length||0, 'var(--amber)'],
+                ].map(([l,v,c])=>`
+                <div style="display:flex;justify-content:space-between;font-size:0.84rem;padding:6px 0;border-bottom:1px solid var(--line)">
+                  <span style="color:var(--ink-3)">${l}</span>
+                  <span style="font-weight:600;color:${c}">${v}</span>
+                </div>`).join('')}
               </div>
             </div>
+          </div>
 
-            <!-- Back -->
-            <div style="display:flex;gap:12px">
-              <button class="btn btn-secondary" onclick="App.navigate('dashboard')">← Back to Dashboard</button>
-              <button class="btn btn-primary" onclick="App.navigate('analyzer')">Analyze Another Resume</button>
+          <!-- Skills row -->
+          <div class="result-cols" style="margin-bottom:18px">
+            <div class="card">
+              <h3 class="card-title" style="font-size:0.95rem">✓ Found skills</h3>
+              <div class="chips">
+                ${r.foundSkills?.length
+                  ? r.foundSkills.map(s=>`<span class="chip chip-found">${s}</span>`).join('')
+                  : '<span style="font-size:0.82rem;color:var(--ink-3)">None detected</span>'}
+              </div>
+            </div>
+            <div class="card">
+              <h3 class="card-title" style="font-size:0.95rem">✗ Missing skills</h3>
+              <div class="chips">
+                ${r.missingSkills?.length
+                  ? r.missingSkills.map(s=>`<span class="chip chip-missing">${s}</span>`).join('')
+                  : '<span style="font-size:0.82rem;color:var(--green)">All key skills present!</span>'}
+              </div>
             </div>
           </div>
+
+          <!-- Strengths -->
+          ${r.strengths?.length ? `
+          <div class="card" style="margin-bottom:18px">
+            <h3 class="card-title" style="font-size:0.95rem">★ Strengths</h3>
+            <div class="suggestions">
+              ${r.strengths.map(s=>`
+              <div class="suggestion">
+                <span class="suggestion-arrow" style="color:var(--green)">★</span>
+                ${s}
+              </div>`).join('')}
+            </div>
+          </div>` : ''}
+
+          <!-- Suggestions -->
+          <div class="card" style="margin-bottom:18px">
+            <h3 class="card-title" style="font-size:0.95rem">→ Improvement suggestions</h3>
+            <div class="suggestions">
+              ${r.suggestions?.length
+                ? r.suggestions.map(s=>`
+                <div class="suggestion">
+                  <span class="suggestion-arrow">→</span>${s}
+                </div>`).join('')
+                : '<p style="font-size:0.84rem;color:var(--ink-3)">No suggestions.</p>'}
+            </div>
+          </div>
+
         </div>
       </div>
     </div>`;
   },
 
-  // ──────────────────────────────────────────────
-  // PAGE: PROFILE
-  // ──────────────────────────────────────────────
+  // ── PROFILE ─────────────────────────────────────────────
   profile() {
-    const u = App.currentUser;
+    const u = App.user;
     return `
-    <div class="page-wrapper">
+    <div class="app">
       ${this.sidebar('profile')}
-      <div class="main-content">
+      <div class="main">
         ${this.topbar('Profile')}
-        <div class="page-body page-content" style="max-width:640px">
+        <div class="body page-in" style="max-width:580px">
           <div class="profile-header">
-            <div class="profile-avatar-lg">${u?.avatar || '?'}</div>
+            <div class="avatar-lg">${u?.initials||'?'}</div>
             <div>
-              <div class="profile-meta-name">${u?.name}</div>
-              <div class="profile-meta-email">${u?.email}</div>
-              <div style="margin-top:6px"><span class="badge badge-gold">✦ Active Member</span></div>
+              <div class="profile-name">${u?.name}</div>
+              <div class="profile-email">${u?.email}</div>
+              <div style="margin-top:6px"><span class="tag tag-green">Active</span></div>
             </div>
           </div>
 
-          <!-- Edit form -->
-          <div class="card" style="margin-bottom:20px">
-            <div class="card-header"><h3 class="card-title">Edit Profile</h3></div>
-            <div class="form-group">
-              <label class="form-label">Full Name</label>
-              <input class="form-input" id="profile-name" type="text" value="${u?.name || ''}">
+          <div class="card" style="margin-bottom:16px">
+            <h3 class="card-title">Edit profile</h3>
+            <div class="field">
+              <label class="label">Full name</label>
+              <input class="input" id="p-name" value="${u?.name||''}">
             </div>
-            <div class="form-group">
-              <label class="form-label">Email Address</label>
-              <input class="form-input" id="profile-email" type="email" value="${u?.email || ''}">
+            <div class="field">
+              <label class="label">Email</label>
+              <input class="input" id="p-email" type="email" value="${u?.email||''}">
             </div>
-            <div id="profile-error" style="color:var(--error);font-size:0.82rem;margin-bottom:8px;display:none"></div>
-            <button class="btn btn-primary" id="profile-save-btn">Save Changes</button>
+            <div class="err-msg" id="p-err"></div>
+            <button class="btn btn-primary" id="p-save">Save changes</button>
           </div>
 
-          <!-- Account info -->
           <div class="card">
-            <div class="card-header"><h3 class="card-title">Account Info</h3></div>
-            <div style="display:flex;flex-direction:column;gap:14px">
-              <div style="display:flex;justify-content:space-between;font-size:0.88rem">
-                <span style="color:var(--text-muted)">Member Since</span>
-                <span>${UI.formatDate(u?.createdAt || new Date().toISOString())}</span>
-              </div>
-              <div style="display:flex;justify-content:space-between;font-size:0.88rem">
-                <span style="color:var(--text-muted)">Analyses Run</span>
-                <span>${Reports.getAll().length}</span>
-              </div>
-              <div style="display:flex;justify-content:space-between;font-size:0.88rem">
-                <span style="color:var(--text-muted)">Account Status</span>
-                <span style="color:var(--success)">Active</span>
-              </div>
+            <h3 class="card-title">Account</h3>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              ${[
+                ['Member since', UI.date(u?.joined||new Date().toISOString())],
+                ['Analyses run', Reports.all().length],
+                ['Status', 'Active'],
+              ].map(([l,v])=>`
+              <div style="display:flex;justify-content:space-between;font-size:0.875rem;padding:7px 0;border-bottom:1px solid var(--line)">
+                <span style="color:var(--ink-3)">${l}</span>
+                <span>${v}</span>
+              </div>`).join('')}
             </div>
             <div class="divider"></div>
-            <button class="btn-logout" onclick="Auth.logout()" style="width:auto;padding:10px 20px">⎋ &nbsp;Sign Out</button>
+            <button class="btn-logout" onclick="Auth.logout()" style="width:auto;padding:9px 16px">Sign out</button>
           </div>
         </div>
       </div>
     </div>`;
   },
 
-  // ──────────────────────────────────────────────
-  // FOOTER
-  // ──────────────────────────────────────────────
-  footer() {
-    return `
-    <footer class="footer">
-      <div class="footer-inner">
-        <div>
-          <div class="logo-mark" style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-            <div class="logo-icon" style="width:28px;height:28px;font-size:14px">✦</div>
-            <span class="logo-text" style="font-size:1.1rem">ResumeAI</span>
-          </div>
-          <p class="footer-text">AI-powered resume analysis for modern job seekers.</p>
-        </div>
-        <div style="display:flex;gap:32px;flex-wrap:wrap">
-          <div>
-            <div style="font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">Product</div>
-            ${['home','features','about','contact'].map(p => `
-            <div style="margin-bottom:6px">
-              <a onclick="App.navigate('${p}')" style="font-size:0.85rem;color:var(--text-secondary);cursor:pointer;transition:color 0.2s" onmouseover="this.style.color='var(--gold)'" onmouseout="this.style.color='var(--text-secondary)'">${p.charAt(0).toUpperCase()+p.slice(1)}</a>
-            </div>`).join('')}
-          </div>
-          <div>
-            <div style="font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">Social</div>
-            <div class="footer-social">
-              ${[['𝕏','#'],['in','#'],['gh','#']].map(([icon, href]) => `
-              <a href="${href}" class="social-link">${icon}</a>`).join('')}
-            </div>
-          </div>
-        </div>
-      </div>
-      <div style="border-top:1px solid var(--border);margin-top:28px;padding-top:16px;text-align:center">
-        <p class="footer-text">© 2025 ResumeAI. Built with ✦ for job seekers everywhere.</p>
-      </div>
-    </footer>`;
-  },
-
-  // ──────────────────────────────────────────────
-  // 404
-  // ──────────────────────────────────────────────
   notFound() {
     return `
-    ${this.publicNav()}
+    ${this.pubNav()}
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:20px">
-      <div style="font-size:5rem;margin-bottom:16px">◌</div>
-      <h1 style="font-family:var(--font-display);font-size:3rem;margin-bottom:8px">404</h1>
-      <p style="color:var(--text-muted);margin-bottom:24px">Page not found</p>
-      <button class="btn btn-primary" onclick="App.navigate('home')">Go Home</button>
+      <div style="font-family:var(--f-serif);font-size:5rem;color:var(--ink-3);margin-bottom:12px">404</div>
+      <p style="color:var(--ink-3);margin-bottom:20px">Page not found</p>
+      <button class="btn btn-primary" onclick="App.go('home')">Go home</button>
     </div>`;
   },
 
-  // ──────────────────────────────────────────────
-  // EVENT BINDING (per-page)
-  // ──────────────────────────────────────────────
-  bindEvents(page) {
-    switch (page) {
-      case 'login':    this._bindLogin();    break;
-      case 'signup':   this._bindSignup();   break;
-      case 'contact':  this._bindContact();  break;
-      case 'analyzer': this._bindAnalyzer(); break;
-      case 'profile':  this._bindProfile();  break;
-      case 'result':   this._bindResult();   break;
-    }
+  // ── Event Binding ────────────────────────────────────────
+  bind(page) {
+    if (page === 'login')    this.bindLogin();
+    if (page === 'signup')   this.bindSignup();
+    if (page === 'contact')  this.bindContact();
+    if (page === 'analyzer') this.bindAnalyzer();
+    if (page === 'profile')  this.bindProfile();
+    if (page === 'result')   this.bindResult();
   },
 
-  _bindLogin() {
-    const btn = document.getElementById('login-btn');
+  bindLogin() {
+    const btn = document.getElementById('l-btn');
     if (!btn) return;
-    const doLogin = () => {
-      const email = document.getElementById('login-email').value.trim();
-      const pass  = document.getElementById('login-password').value;
-      const err   = document.getElementById('login-error');
-      if (!email || !pass) { err.textContent = 'Please fill in all fields.'; err.style.display='block'; return; }
-      const res = Auth.login(email, pass);
-      if (!res.ok) { err.textContent = res.msg; err.style.display='block'; return; }
-      UI.toast('Welcome back!', 'success');
-      App.navigate('dashboard');
+    const go = () => {
+      const email = document.getElementById('l-email').value.trim();
+      const pass  = document.getElementById('l-pass').value;
+      const err   = document.getElementById('l-err');
+      if (!email||!pass) { err.textContent='Fill in all fields.'; err.style.display='block'; return; }
+      const r = Auth.login(email, pass);
+      if (!r.ok) { err.textContent=r.msg; err.style.display='block'; return; }
+      UI.toast('Welcome back!','ok');
+      App.go('dashboard');
     };
-    btn.addEventListener('click', doLogin);
-    document.getElementById('login-password').addEventListener('keydown', e => e.key === 'Enter' && doLogin());
+    btn.addEventListener('click', go);
+    document.getElementById('l-pass').addEventListener('keydown', e => e.key==='Enter' && go());
   },
 
-  _bindSignup() {
-    const btn = document.getElementById('signup-btn');
-    if (!btn) return;
-    btn.addEventListener('click', () => {
-      const name  = document.getElementById('signup-name').value.trim();
-      const email = document.getElementById('signup-email').value.trim();
-      const pass  = document.getElementById('signup-password').value;
-      const err   = document.getElementById('signup-error');
-      if (!name || !email || !pass) { err.textContent = 'Please fill in all fields.'; err.style.display='block'; return; }
-      if (pass.length < 6) { err.textContent = 'Password must be at least 6 characters.'; err.style.display='block'; return; }
-      const res = Auth.signup(name, email, pass);
-      if (!res.ok) { err.textContent = res.msg; err.style.display='block'; return; }
-      UI.toast('Account created! Welcome.', 'success');
-      App.navigate('dashboard');
+  bindSignup() {
+    document.getElementById('s-btn')?.addEventListener('click', () => {
+      const name  = document.getElementById('s-name').value.trim();
+      const email = document.getElementById('s-email').value.trim();
+      const pass  = document.getElementById('s-pass').value;
+      const err   = document.getElementById('s-err');
+      if (!name||!email||!pass) { err.textContent='Fill in all fields.'; err.style.display='block'; return; }
+      if (pass.length<6) { err.textContent='Password must be 6+ characters.'; err.style.display='block'; return; }
+      const r = Auth.signup(name, email, pass);
+      if (!r.ok) { err.textContent=r.msg; err.style.display='block'; return; }
+      UI.toast('Account created!','ok');
+      App.go('dashboard');
     });
   },
 
-  _bindContact() {
-    const btn = document.getElementById('contact-submit');
-    if (!btn) return;
-    btn.addEventListener('click', () => {
-      const name = document.getElementById('contact-name').value.trim();
-      const email= document.getElementById('contact-email').value.trim();
-      const msg  = document.getElementById('contact-msg').value.trim();
-      if (!name || !email || !msg) { UI.toast('Please fill in all fields.', 'error'); return; }
-      document.getElementById('contact-name').value = '';
-      document.getElementById('contact-email').value = '';
-      document.getElementById('contact-msg').value = '';
-      UI.toast('Message sent! We\'ll get back to you soon.', 'success', 4000);
+  bindContact() {
+    document.getElementById('c-send')?.addEventListener('click', () => {
+      const n = document.getElementById('c-name').value.trim();
+      const e = document.getElementById('c-email').value.trim();
+      const m = document.getElementById('c-msg').value.trim();
+      if (!n||!e||!m) { UI.toast('Fill in all fields.','err'); return; }
+      document.getElementById('c-name').value='';
+      document.getElementById('c-email').value='';
+      document.getElementById('c-msg').value='';
+      UI.toast('Message sent! We\'ll reply soon.','ok',4000);
     });
   },
 
-  _bindAnalyzer() {
-    // Drag and drop
-    const zone = document.getElementById('upload-zone');
+  bindAnalyzer() {
+    const zone = document.getElementById('drop-zone');
     if (!zone) return;
-    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
-    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('over'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('over'));
     zone.addEventListener('drop', e => {
-      e.preventDefault();
-      zone.classList.remove('drag-over');
-      const file = e.dataTransfer.files[0];
-      if (file) window._selectedFile = file, updateFileUI(file);
+      e.preventDefault(); zone.classList.remove('over');
+      const f = e.dataTransfer.files[0];
+      if (f) { window._file = f; showFilePill(f); }
     });
-
-    const btn = document.getElementById('analyze-btn');
-    if (!btn) return;
-    btn.addEventListener('click', runAnalysis);
+    document.getElementById('a-btn')?.addEventListener('click', runAnalysis);
   },
 
-  _bindProfile() {
-    const btn = document.getElementById('profile-save-btn');
-    if (!btn) return;
-    btn.addEventListener('click', () => {
-      const name  = document.getElementById('profile-name').value.trim();
-      const email = document.getElementById('profile-email').value.trim();
-      const err   = document.getElementById('profile-error');
-      if (!name || !email) { err.textContent = 'Name and email are required.'; err.style.display='block'; return; }
-      const res = Auth.updateProfile(name, email);
-      if (!res.ok) { err.textContent = res.msg; err.style.display='block'; return; }
-      UI.toast('Profile updated successfully!', 'success');
-      App.navigate('profile');
+  bindProfile() {
+    document.getElementById('p-save')?.addEventListener('click', () => {
+      const name  = document.getElementById('p-name').value.trim();
+      const email = document.getElementById('p-email').value.trim();
+      const err   = document.getElementById('p-err');
+      if (!name||!email) { err.textContent='Name and email required.'; err.style.display='block'; return; }
+      const r = Auth.update(name, email);
+      if (!r.ok) { err.textContent=r.msg; err.style.display='block'; return; }
+      UI.toast('Profile updated!','ok');
+      App.go('profile');
     });
   },
 
-  _bindResult() {
-    const btn = document.getElementById('download-btn');
-    if (!btn) return;
-    btn.addEventListener('click', downloadResult);
+  bindResult() {
+    document.getElementById('dl-btn')?.addEventListener('click', downloadReport);
   }
 };
 
-// ── Global handlers needed by inline event attrs ──────────
-function handleFileSelect(event) {
-  const file = event.target.files[0];
-  if (file) { window._selectedFile = file; updateFileUI(file); }
+// ── Global handlers ──────────────────────────────────────
+function handleFile(e) {
+  const f = e.target.files[0];
+  if (f) { window._file = f; showFilePill(f); }
 }
 
-function updateFileUI(file) {
-  const sel = document.getElementById('file-selected');
+function showFilePill(f) {
+  const pill = document.getElementById('file-pill');
   const name = document.getElementById('file-name');
   const size = document.getElementById('file-size');
-  if (sel && name && size) {
-    name.textContent = file.name;
-    size.textContent = (file.size / 1024).toFixed(1) + ' KB';
-    sel.style.display = 'flex';
+  if (pill && name && size) {
+    name.textContent = f.name;
+    size.textContent = (f.size/1024).toFixed(1)+' KB';
+    pill.classList.add('show');
   }
 }
 
 async function runAnalysis() {
-  const file = window._selectedFile;
-  const errEl = document.getElementById('analyze-error');
-  const btn = document.getElementById('analyze-btn');
-  const loading = document.getElementById('analyze-loading');
-  const loadText = document.getElementById('loading-text');
+  const file = window._file;
+  const errEl = document.getElementById('a-err');
+  const btn   = document.getElementById('a-btn');
+  const load  = document.getElementById('a-load');
+  const txt   = document.getElementById('a-load-txt');
 
   errEl.style.display = 'none';
 
-  if (!file) { errEl.textContent = 'Please select a PDF resume to analyze.'; errEl.style.display='block'; return; }
-  if (!file.name.endsWith('.pdf')) { errEl.textContent = 'Only PDF files are supported.'; errEl.style.display='block'; return; }
+  // Validate file selected
+  if (!file) {
+    errEl.textContent = 'Please select a PDF resume first.';
+    errEl.style.display = 'block';
+    return;
+  }
 
-  // Show loading
+  if (!file.name.toLowerCase().endsWith('.pdf')) {
+    errEl.textContent = 'Only PDF files are supported.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  if (file.size > 10 * 1024 * 1024) {
+    errEl.textContent = 'File too large. Max 10MB.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const apiKey = document.getElementById('gemini-key').value.trim();
+  if (!apiKey) {
+    errEl.textContent = 'Enter your Gemini API key to run the analysis.';
+    errEl.style.display = 'block';
+    return;
+  }
+
   btn.style.display = 'none';
-  loading.style.display = 'block';
+  load.classList.add('show');
 
   try {
-    loadText.textContent = 'Extracting text from PDF…';
-    const text = await PDFReader.extract(file);
+    txt.textContent = 'Reading your PDF…';
+    const text = await PDF.extract(file);
 
-    loadText.textContent = 'Running AI analysis…';
-    await new Promise(r => setTimeout(r, 800)); // brief artificial delay for UX
+    if (!text || text.trim().length < 50) {
+      throw new Error('NOT_A_RESUME');
+    }
 
-    const result = Analyzer.analyze(text);
+    txt.textContent = 'Sending to Gemini AI…';
+    await new Promise(r => setTimeout(r, 500));
 
-    // Save report
+    txt.textContent = 'Analyzing your resume…';
+    const result = await AI.analyze(text, apiKey);
+
+    // Save to history
     Reports.save({
-      userId: App.currentUser.id,
       filename: file.name,
-      score: result.score,
-      foundSkills: result.foundSkills,
-      missingSkills: result.missingSkills,
-      bonusKeywords: result.bonusKeywords,
-      suggestions: result.suggestions,
-      level: result.level,
-      textLength: text.trim().split(/\s+/).length
+      atsScore: result.atsScore,
+      scoreLevel: result.scoreLevel,
+      foundSkills: result.foundSkills || [],
+      missingSkills: result.missingSkills || [],
+      strengths: result.strengths || [],
+      suggestions: result.suggestions || [],
+      summary: result.summary || '',
     });
 
-    window._selectedFile = null;
-    UI.toast(`Analysis complete! ATS Score: ${result.score}%`, 'success');
-    App.navigate('result');
+    window._file = null;
+    UI.toast(`Analysis complete! Score: ${result.atsScore}%`, 'ok');
+    App.go('result');
 
-  } catch (err) {
+  } catch(err) {
     btn.style.display = 'flex';
-    loading.style.display = 'none';
-    errEl.textContent = 'Could not read the PDF. Please try a different file.';
+    load.classList.remove('show');
+
+    if (err.message === 'NOT_A_RESUME') {
+      errEl.textContent = 'This doesn\'t appear to be a resume. Please upload a valid resume PDF.';
+    } else if (err.message?.includes('API_KEY_INVALID') || err.message?.includes('400')) {
+      errEl.textContent = 'Invalid API key. Check the key entered above.';
+    } else if (err.message?.includes('429')) {
+      errEl.textContent = 'API quota exceeded. Wait a moment and try again.';
+    } else {
+      errEl.textContent = 'Analysis failed. Check your API key and try again.';
+      console.error(err);
+    }
     errEl.style.display = 'block';
-    console.error(err);
   }
 }
 
-function downloadResult() {
-  const reports = Reports.getAll();
-  const report = reports[0];
-  if (!report) return;
-
+function downloadReport() {
+  const r = Reports.latest();
+  if (!r) return;
   const text = `
-AI RESUME ANALYSIS REPORT
-==========================
-File: ${report.filename}
-Date: ${UI.formatDate(report.date)}
-ATS Score: ${report.score}% (${report.level.toUpperCase()})
+RESUME ANALYSIS REPORT
+======================
+File: ${r.filename}
+Date: ${UI.date(r.date)}
+ATS Score: ${r.atsScore}% (${r.scoreLevel.toUpperCase()})
 
-FOUND SKILLS (${report.foundSkills.length})
-${report.foundSkills.join(', ') || 'None'}
+AI SUMMARY
+${r.summary}
 
-MISSING SKILLS (${report.missingSkills.length})
-${report.missingSkills.join(', ') || 'None'}
+FOUND SKILLS (${r.foundSkills?.length||0})
+${r.foundSkills?.join(', ')||'None'}
 
-BONUS KEYWORDS (${report.bonusKeywords?.length || 0})
-${report.bonusKeywords?.join(', ') || 'None'}
+MISSING SKILLS (${r.missingSkills?.length||0})
+${r.missingSkills?.join(', ')||'None'}
+
+STRENGTHS
+${r.strengths?.map((s,i)=>`${i+1}. ${s}`).join('\n')||'—'}
 
 IMPROVEMENT SUGGESTIONS
-${report.suggestions.map((s,i) => `${i+1}. ${s}`).join('\n')}
+${r.suggestions?.map((s,i)=>`${i+1}. ${s}`).join('\n')||'—'}
 
 --
-Generated by ResumeAI · resumeai.app
+Generated by ResumeAI
   `.trim();
-
-  const blob = new Blob([text], { type: 'text/plain' });
+  const blob = new Blob([text], { type:'text/plain' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url;
-  a.download = `resume-analysis-${report.score}pct.txt`;
+  a.href = url; a.download = `resume-analysis-${r.atsScore}pct.txt`;
   a.click();
   URL.revokeObjectURL(url);
-  UI.toast('Report downloaded!', 'success');
+  UI.toast('Report downloaded!','ok');
 }
