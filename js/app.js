@@ -1,6 +1,19 @@
 /* ============================================================
-   ResumeAI v2 — Core (auth, router, storage, PDF, utils)
+   ResumeAI: core (config, auth, router, storage, PDF, utils)
    ============================================================ */
+
+// ── Site details ──────────────────────────────────────────
+// Fill these in before launch. They appear on the Contact,
+// Privacy Policy and Terms pages. Leave a value empty and the
+// pages will leave that line out instead of showing a placeholder.
+const SITE = {
+  name:      'ResumeAI',
+  owner:     '',          // Your full legal name or company name
+  email:     '',          // Public contact address, e.g. on your custom domain
+  domain:    '',          // e.g. 'resumeai.in' once connected in Vercel
+  updated:   '3 November 2026',
+  law:       'India'
+};
 
 // ── Config ────────────────────────────────────────────────
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent';
@@ -10,7 +23,6 @@ const App = {
   user: null,
 
   init() {
-    // Load PDF.js worker
     if (typeof pdfjsLib !== 'undefined') {
       pdfjsLib.GlobalWorkerOptions.workerSrc =
         'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -89,10 +101,24 @@ const Auth = {
     const users = this.users();
     const i = users.findIndex(u => u.id === App.user.id);
     if (i < 0) return { ok: false, msg: 'User not found.' };
+    if (users.some((u, j) => j !== i && u.email === email))
+      return { ok: false, msg: 'That email is used by another account.' };
     users[i] = { ...users[i], name, email, initials: name.slice(0,2).toUpperCase() };
     this.saveUsers(users);
     this.setUser(users[i]);
     return { ok: true };
+  },
+
+  // Removes the account and all of its reports from this browser.
+  deleteAccount() {
+    const id = App.user?.id;
+    if (!id) return;
+    this.saveUsers(this.users().filter(u => u.id !== id));
+    try {
+      const all = JSON.parse(localStorage.getItem('ru_reports')) || [];
+      localStorage.setItem('ru_reports', JSON.stringify(all.filter(r => r.uid !== id)));
+    } catch {}
+    this.logout();
   }
 };
 
@@ -106,23 +132,23 @@ const Reports = {
   },
 
   save(r) {
-    try {
-      const all = JSON.parse(localStorage.getItem('ru_reports')) || [];
-      all.unshift({ ...r, id: Date.now().toString(), date: new Date().toISOString(), uid: App.user.id });
-      localStorage.setItem('ru_reports', JSON.stringify(all));
-    } catch {}
+    const all = (() => {
+      try { return JSON.parse(localStorage.getItem('ru_reports')) || []; } catch { return []; }
+    })();
+    const report = { ...r, id: Date.now().toString(), date: new Date().toISOString(), uid: App.user.id };
+    all.unshift(report);
+    try { localStorage.setItem('ru_reports', JSON.stringify(all)); } catch {}
+    return report;
   },
 
   get(id) {
-    try {
-      return (JSON.parse(localStorage.getItem('ru_reports')) || []).find(r => r.id === id) || null;
-    } catch { return null; }
+    return this.all().find(r => r.id === id) || null;
   },
 
   del(id) {
     try {
-      let all = JSON.parse(localStorage.getItem('ru_reports')) || [];
-      localStorage.setItem('ru_reports', JSON.stringify(all.filter(r => r.id !== id)));
+      const all = JSON.parse(localStorage.getItem('ru_reports')) || [];
+      localStorage.setItem('ru_reports', JSON.stringify(all.filter(r => !(r.id === id && r.uid === App.user?.id))));
     } catch {}
   },
 
@@ -156,13 +182,11 @@ const PDF = {
 // ── Gemini AI Analyzer ────────────────────────────────────
 const AI = {
   async analyze(resumeText, apiKey) {
-    // Validate: must have meaningful content
     const words = resumeText.trim().split(/\s+/).filter(Boolean);
     if (words.length < 30) {
       throw new Error('NOT_A_RESUME');
     }
 
-    // Check it looks like a resume
     const resumeSignals = ['experience', 'education', 'skills', 'work', 'university',
       'college', 'degree', 'project', 'job', 'career', 'professional', 'resume',
       'cv', 'qualification', 'employment', 'position', 'role', 'company', 'intern'];
@@ -197,6 +221,7 @@ Rules:
 - foundSkills: Only list skills explicitly mentioned in the resume
 - missingSkills: Based on the resume's apparent field/role, what important skills are absent
 - suggestions: Must be SPECIFIC to this actual resume content, not generic advice
+- Do not use em dashes in any text field
 - If the text is not a proper resume, set atsScore to 0 and summary to "This does not appear to be a resume."`;
 
     const response = await fetch(`${GEMINI_URL}?key=${encodeURIComponent(apiKey)}`, {
@@ -209,19 +234,23 @@ Rules:
     });
 
     if (!response.ok) {
-      const err = await response.json();
-      throw new Error(err.error?.message || 'API error');
+      let msg = `API error ${response.status}`;
+      try { const err = await response.json(); msg = `${response.status} ${err.error?.message || ''}`; } catch {}
+      throw new Error(msg);
     }
 
     const data = await response.json();
     const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
-    // Strip markdown fences if present
     const clean = raw.replace(/```json|```/g, '').trim();
     const result = JSON.parse(clean);
 
-    // If AI says not a resume
     if (result.atsScore === 0) throw new Error('NOT_A_RESUME');
+
+    // Keep the score and level consistent with each other.
+    const score = Math.max(1, Math.min(100, Math.round(Number(result.atsScore) || 0)));
+    result.atsScore = score;
+    result.scoreLevel = score >= 75 ? 'excellent' : score >= 45 ? 'good' : 'poor';
 
     return result;
   }
@@ -229,12 +258,18 @@ Rules:
 
 // ── UI Utils ──────────────────────────────────────────────
 const UI = {
+  // Escape text before it goes into innerHTML (file names, AI output, profile fields).
+  esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  },
+
   toast(msg, type = 'default', ms = 3200) {
     let el = document.getElementById('toast');
     if (!el) {
       el = document.createElement('div');
       el.id = 'toast';
       el.className = 'toast';
+      el.setAttribute('role', 'status');
       document.body.appendChild(el);
     }
     el.textContent = msg;
@@ -246,13 +281,6 @@ const UI = {
 
   date(iso) {
     return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  },
-
-  animateRing(el, score) {
-    const circ = 377;
-    requestAnimationFrame(() => {
-      el.style.strokeDashoffset = circ - (score / 100) * circ;
-    });
   },
 
   toggleSidebar() {

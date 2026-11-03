@@ -1,44 +1,55 @@
 /* ============================================================
-   ResumeAI v2 — Pages (all 10 pages + event binding)
+   ResumeAI: pages and event binding
    ============================================================ */
 
+const ICONS = {
+  menu: `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M3 5.5h14M3 10h14M3 14.5h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>`,
+  upload: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 15V4m0 0L7.5 8.5M12 4l4.5 4.5M5 15v3.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+};
+
 const Pages = {
+  current: null, // report shown on the result page
 
   render(page) {
     const root = document.getElementById('app');
     if (!root) return;
-    root.style.opacity = '0';
-    setTimeout(() => {
-      const map = {
-        home: 'home', about: 'about', features: 'features',
-        contact: 'contact', login: 'login', signup: 'signup',
-        dashboard: 'dashboard', analyzer: 'analyzer',
-        result: 'result', profile: 'profile'
-      };
-      root.innerHTML = this[map[page] || 'notFound']();
-      root.style.transition = 'opacity 0.3s ease';
-      root.style.opacity = '1';
-      this.bind(page);
-    }, 110);
+    const map = {
+      home: 'home', about: 'about', features: 'features',
+      contact: 'contact', login: 'login', signup: 'signup',
+      dashboard: 'dashboard', analyzer: 'analyzer',
+      result: 'result', profile: 'profile',
+      privacy: 'privacy', terms: 'terms'
+    };
+    const name = map[page] || 'notFound';
+    root.innerHTML = this[name]();
+    document.title = this.titles[name] ? `${this.titles[name]} | ResumeAI` : 'ResumeAI | Resume analysis with Google Gemini';
+    this.bind(page);
+  },
+
+  titles: {
+    about: 'About', features: 'Features', contact: 'Contact', login: 'Log in',
+    signup: 'Sign up', dashboard: 'Dashboard', analyzer: 'Analyze resume',
+    result: 'Analysis result', profile: 'Profile', privacy: 'Privacy Policy',
+    terms: 'Terms and Conditions', notFound: 'Page not found'
   },
 
   // ── Shared: Public Nav ──────────────────────────────────
   pubNav() {
     const right = App.user
-      ? `<button class="btn btn-primary btn-sm" onclick="App.go('dashboard')">Dashboard</button>`
-      : `<button class="btn btn-ghost btn-sm" onclick="App.go('login')">Log in</button>
-         <button class="btn btn-primary btn-sm" onclick="App.go('signup')">Sign up</button>`;
+      ? `<a class="btn btn-primary btn-sm" href="#dashboard">Dashboard</a>`
+      : `<a class="btn btn-ghost btn-sm" href="#login">Log in</a>
+         <a class="btn btn-primary btn-sm" href="#signup">Sign up</a>`;
     return `
     <nav class="pub-nav">
-      <div class="logo" onclick="App.go('home')">
-        <div class="logo-dot"></div>
+      <a class="logo" href="#home">
+        <span class="logo-dot"></span>
         <span class="logo-name">ResumeAI</span>
-      </div>
+      </a>
       <div class="pub-nav-links">
-        <a onclick="App.go('home')">Home</a>
-        <a onclick="App.go('about')">About</a>
-        <a onclick="App.go('features')">Features</a>
-        <a onclick="App.go('contact')">Contact</a>
+        <a href="#home">Home</a>
+        <a href="#about">About</a>
+        <a href="#features">Features</a>
+        <a href="#contact">Contact</a>
       </div>
       <div class="pub-nav-cta">${right}</div>
     </nav>`;
@@ -61,29 +72,29 @@ const Pages = {
     <div class="overlay" onclick="UI.closeSidebar()"></div>
     <aside class="sidebar">
       <div class="sidebar-top">
-        <div class="logo" onclick="App.go('home');UI.closeSidebar()">
-          <div class="logo-dot"></div>
+        <a class="logo" href="#home" onclick="UI.closeSidebar()">
+          <span class="logo-dot"></span>
           <span class="logo-name">ResumeAI</span>
-        </div>
+        </a>
       </div>
       <nav class="sidebar-nav">
         <div class="nav-label">Menu</div>
         ${items.map(x => `
-          <button class="nav-item ${active===x.id?'active':''}" onclick="App.go('${x.id}');UI.closeSidebar()">
+          <a class="nav-item ${active===x.id?'active':''}" href="#${x.id}" onclick="UI.closeSidebar()">
             <span class="nav-dot"></span>${x.label}
-          </button>`).join('')}
+          </a>`).join('')}
         <div class="nav-label" style="margin-top:8px">Pages</div>
         ${pubItems.map(x => `
-          <button class="nav-item" onclick="App.go('${x.id}');UI.closeSidebar()">
+          <a class="nav-item" href="#${x.id}" onclick="UI.closeSidebar()">
             <span class="nav-dot"></span>${x.label}
-          </button>`).join('')}
+          </a>`).join('')}
       </nav>
       <div class="sidebar-bottom">
         <div class="user-row">
-          <div class="avatar">${u?.initials||'?'}</div>
-          <div>
-            <div class="user-name-sm">${u?.name||'User'}</div>
-            <div class="user-email-sm">${u?.email||''}</div>
+          <div class="avatar">${UI.esc(u?.initials||'?')}</div>
+          <div style="min-width:0">
+            <div class="user-name-sm">${UI.esc(u?.name||'User')}</div>
+            <div class="user-email-sm">${UI.esc(u?.email||'')}</div>
           </div>
         </div>
         <button class="btn-logout" onclick="Auth.logout()">Sign out</button>
@@ -95,28 +106,30 @@ const Pages = {
     return `
     <header class="topbar">
       <div style="display:flex;align-items:center;gap:12px">
-        <button class="hamburger" onclick="UI.toggleSidebar()">☰</button>
+        <button class="hamburger" onclick="UI.toggleSidebar()" aria-label="Open menu">${ICONS.menu}</button>
         <span class="topbar-title">${title}</span>
-      </div>
-      <div class="topbar-right">
-        <span class="tag tag-green" style="font-size:0.72rem">● Live</span>
       </div>
     </header>`;
   },
 
   footer() {
+    const year = new Date().getFullYear();
     return `
     <footer class="footer">
       <div class="footer-inner">
-        <div class="logo" onclick="App.go('home')" style="cursor:pointer">
-          <div class="logo-dot"></div>
-          <span class="logo-name">ResumeAI</span>
+        <div>
+          <a class="logo" href="#home">
+            <span class="logo-dot"></span>
+            <span class="logo-name">ResumeAI</span>
+          </a>
+          <p class="footer-text">&copy; ${year} ${UI.esc(SITE.owner || SITE.name)}</p>
         </div>
-        <p class="footer-text">AI-powered resume analysis. Built for job seekers.</p>
         <div class="footer-links">
-          <a onclick="App.go('about')">About</a>
-          <a onclick="App.go('features')">Features</a>
-          <a onclick="App.go('contact')">Contact</a>
+          <a href="#about">About</a>
+          <a href="#features">Features</a>
+          <a href="#contact">Contact</a>
+          <a href="#privacy">Privacy Policy</a>
+          <a href="#terms">Terms and Conditions</a>
         </div>
       </div>
     </footer>`;
@@ -128,49 +141,39 @@ const Pages = {
     ${this.pubNav()}
     <main style="padding-top:60px">
       <section class="hero">
-        <div class="hero-badge">
-          <span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block"></span>
-          Powered by Gemini AI
-        </div>
-        <h1 class="hero-title">
-          Your resume,<br><em>honestly scored</em>
-        </h1>
+        <p class="hero-badge">Uses Google Gemini</p>
+        <h1 class="hero-title">Find out what your<br>resume is missing</h1>
         <p class="hero-sub">
-          Upload your resume and get a real ATS score with specific, actionable feedback — not generic tips.
+          Upload a PDF resume and get an estimated ATS score, the skills it lists, the skills it leaves out, and specific edits to make.
         </p>
         <div class="hero-btns">
-          <button class="btn btn-primary btn-lg" onclick="App.go(App.user?'analyzer':'signup')">
-            Analyze my resume
-          </button>
-          <button class="btn btn-ghost btn-lg" onclick="App.go('features')">
-            See how it works
-          </button>
+          <a class="btn btn-primary btn-lg" href="#${App.user?'analyzer':'signup'}">Analyze my resume</a>
+          <a class="btn btn-ghost btn-lg" href="#features">How it works</a>
         </div>
 
-        <div style="display:flex;gap:16px;margin-top:52px;flex-wrap:wrap;justify-content:center;animation:up 0.5s 0.35s ease both;opacity:0">
-          ${[['Real AI','Not keyword matching'],['Private','Runs in your browser'],['Free','No credit card']].map(([v,l])=>`
-          <div style="padding:14px 22px;background:var(--bg-2);border:1px solid var(--line);border-radius:var(--r-lg);text-align:center">
-            <div style="font-family:var(--f-serif);font-size:1.1rem">${v}</div>
-            <div style="font-size:0.75rem;color:var(--ink-3);margin-top:2px">${l}</div>
+        <div class="hero-facts">
+          ${[['Your own API key','Analysis runs on Google Gemini'],['Stored on your device','Reports stay in this browser'],['Free','No payment to use ResumeAI']].map(([v,l])=>`
+          <div class="hero-fact">
+            <div class="hero-fact-v">${v}</div>
+            <div class="hero-fact-l">${l}</div>
           </div>`).join('')}
         </div>
       </section>
 
       <section class="section">
         <p class="section-eyebrow">What you get</p>
-        <h2 class="section-title">Honest analysis,<br>not flattery</h2>
-        <p class="section-sub">Our AI reads your resume the same way an ATS does — and tells you the truth.</p>
+        <h2 class="section-title">A score, and the reasons behind it</h2>
+        <p class="section-sub">Each report is written for the resume you upload, so the suggestions point at your actual content.</p>
         <div class="feat-grid">
           ${[
-            ['◎','Real ATS Score','Gemini AI analyzes your resume and gives a genuine score — not inflated, not random.'],
-            ['◈','Skill Gap Analysis','See exactly which skills are present and which important ones are missing for your field.'],
-            ['→','Specific Suggestions','Actionable improvements based on your actual resume content, not generic advice.'],
-            ['◇','PDF Extraction','Upload any PDF — our engine reads it fully and sends it to AI for analysis.'],
-            ['▣','History Tracking','Every analysis saved. Track your score improve as you update your resume.'],
-            ['◉','Privacy First','Your resume text is only sent to Gemini API. We store nothing on any server.'],
-          ].map(([icon,title,desc])=>`
+            ['Estimated ATS score','A score out of 100 based on keywords, formatting, how clearly your experience reads, and skill coverage.'],
+            ['Skills found and missing','The skills your resume mentions, and skills that are commonly expected in your field but absent.'],
+            ['Specific suggestions','Four or five edits that refer to what is in your resume, or what is not.'],
+            ['PDF text extraction','Text is read from your PDF in the browser. Scanned image PDFs have no text layer and cannot be read.'],
+            ['History','Every analysis is saved in your browser so you can compare versions as you edit.'],
+            ['No server storage','We do not run a database. Your resume text goes only to the Gemini API, using your key.'],
+          ].map(([title,desc])=>`
           <div class="feat-card">
-            <span class="feat-icon">${icon}</span>
             <h3 class="feat-title">${title}</h3>
             <p class="feat-desc">${desc}</p>
           </div>`).join('')}
@@ -178,36 +181,13 @@ const Pages = {
       </section>
 
       <section class="section" style="padding-top:0">
-        <h2 class="section-title">What people say</h2>
-        <p class="section-sub">Job seekers who used ResumeAI to land interviews.</p>
-        <div class="testi-grid">
-          ${[
-            ['Aryan S.','Frontend Dev','I uploaded 3 different versions of my resume and finally understood why version 2 performed best. The AI feedback was shockingly specific.'],
-            ['Neha R.','Data Analyst','Previous tools gave me 90% scores that clearly meant nothing. ResumeAI gave me a 58 and told me exactly why. Fixed it, got callbacks.'],
-            ['Karan M.','CS Graduate','The missing skills section alone was worth it. I had no idea I wasn\'t mentioning Docker anywhere despite using it daily.'],
-          ].map(([n,r,t])=>`
-          <div class="testi-card">
-            <p class="testi-text">"${t}"</p>
-            <div class="testi-author">
-              <div class="testi-av">${n[0]}</div>
-              <div>
-                <div class="testi-name">${n}</div>
-                <div class="testi-role">${r}</div>
-              </div>
-            </div>
-          </div>`).join('')}
-        </div>
-      </section>
-
-      <section class="section" style="padding-top:0">
-        <div style="background:var(--bg-2);border:1px solid var(--line);border-radius:var(--r-xl);padding:52px;text-align:center">
-          <h2 style="font-family:var(--f-serif);font-size:2.2rem;margin-bottom:12px">Ready to find out your real score?</h2>
-          <p style="color:var(--ink-2);margin-bottom:28px;max-width:420px;margin-left:auto;margin-right:auto;font-size:0.95rem">
-            Takes 30 seconds. No fluff, no fake 90% scores.
+        <div class="cta-box">
+          <h2 class="cta-title">Ready to check your resume?</h2>
+          <p class="cta-sub">
+            You need a PDF resume and a Gemini API key. You can create a key in
+            <a class="text-link" href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a>.
           </p>
-          <button class="btn btn-primary btn-lg" onclick="App.go(App.user?'analyzer':'signup')">
-            Get started free
-          </button>
+          <a class="btn btn-primary btn-lg" href="#${App.user?'analyzer':'signup'}">Get started</a>
         </div>
       </section>
 
@@ -221,30 +201,23 @@ const Pages = {
     ${this.pubNav()}
     <main style="padding-top:60px">
       <section class="section">
-        <p class="section-eyebrow">Our story</p>
-        <h1 class="section-title">Built because<br><em style="font-style:italic;color:var(--ink-2)">fake scores waste time</em></h1>
-        <p style="color:var(--ink-2);max-width:560px;line-height:1.8;margin-bottom:40px">
-          Most resume analyzers give you a 85%+ score regardless of what you upload — because they want you to feel good and come back. We built ResumeAI to do the opposite: give honest, AI-powered feedback that actually helps you improve.
+        <p class="section-eyebrow">About</p>
+        <h1 class="section-title">A small tool for checking resumes</h1>
+        <p class="prose-lead">
+          ResumeAI reads your resume with Google Gemini and tells you what to fix. You get a score out of 100, the skills it found, the skills that are commonly expected for your field, and a short list of edits. The score is an estimate produced by an AI model. It is not taken from any employer's applicant tracking system.
         </p>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:52px">
+        <h2 class="section-title" style="font-size:1.6rem;margin-top:12px">How it works</h2>
+        <div class="steps">
           ${[
-            ['Our Mission','Honest, specific resume feedback powered by real AI — not keyword counters dressed up as analysis.'],
-            ['Our Approach','We send your resume to Gemini AI with a carefully crafted prompt that forces specific, resume-based feedback.'],
-          ].map(([t,d])=>`
+            ['1','Read','Your browser extracts the text from your PDF using PDF.js. The file itself is never uploaded.'],
+            ['2','Analyze','The first 4,000 characters of that text are sent, with your API key, directly to Google\'s Gemini API.'],
+            ['3','Save','The result is stored in your browser, on this device, so you can come back to it.'],
+          ].map(([n,t,d])=>`
           <div class="card">
+            <div class="step-n">${n}</div>
             <h3 class="card-title">${t}</h3>
-            <p style="color:var(--ink-2);font-size:0.875rem;line-height:1.7">${d}</p>
-          </div>`).join('')}
-        </div>
-
-        <h2 class="section-title" style="margin-bottom:28px">The team</h2>
-        <div class="team-grid">
-          ${[['RK','Ritik Kumar','Founder'],['PS','Priya S.','AI Engineer'],['AM','Ankit M.','Frontend'],['SK','Sara K.','Product']].map(([i,n,r])=>`
-          <div class="team-card">
-            <div class="team-av">${i}</div>
-            <div class="team-name">${n}</div>
-            <div class="team-role">${r}</div>
+            <p class="card-text">${d}</p>
           </div>`).join('')}
         </div>
       </section>
@@ -258,23 +231,21 @@ const Pages = {
     ${this.pubNav()}
     <main style="padding-top:60px">
       <section class="section">
-        <p class="section-eyebrow">Capabilities</p>
-        <h1 class="section-title">Everything you need<br>to get hired</h1>
-        <p class="section-sub">Built around one goal: give you the most honest, useful resume feedback possible.</p>
+        <p class="section-eyebrow">Features</p>
+        <h1 class="section-title">What ResumeAI does</h1>
+        <p class="section-sub">Everything below works today. There are no paid tiers.</p>
         <div class="feat-grid">
           ${[
-            ['◎','Gemini AI Analysis','Your resume text is analyzed by Google\'s Gemini AI — not a keyword counter.'],
-            ['◈','Honest ATS Score','Scores based on real factors: keyword density, formatting, experience clarity, skills.'],
-            ['→','Field-Specific Gaps','AI detects your field and suggests missing skills relevant to your actual career path.'],
-            ['▣','Specific Suggestions','Every suggestion references something actually in (or missing from) your resume.'],
-            ['◇','Resume Validation','Random PDFs are rejected. Only actual resumes get analyzed.'],
-            ['◉','Full History','All past analyses stored locally. View, compare, delete.'],
-            ['⊞','Download Report','Export your analysis as a text file for offline reference.'],
-            ['◌','Privacy','Your resume never stored on our servers. API call to Gemini only.'],
-            ['⚡','Fast','Full AI analysis in under 10 seconds.'],
-          ].map(([i,t,d])=>`
+            ['Gemini analysis','Your resume text is analyzed by Google\'s Gemini model, not a keyword counter.'],
+            ['Estimated ATS score','Weighted across keyword density, formatting signals, experience clarity and skill coverage.'],
+            ['Field-specific gaps','The model works out your field from the resume and lists relevant skills you have not mentioned.'],
+            ['Specific suggestions','Each suggestion refers to something in your resume, or something missing from it.'],
+            ['Resume check','Files that do not look like a resume are rejected before anything is sent to Gemini.'],
+            ['History','Past analyses are stored in your browser. You can view or delete each one.'],
+            ['Download report','Save any analysis as a plain text file.'],
+            ['Privacy','Your key is used for one request and not saved. Your resume is not stored on any server we run.'],
+          ].map(([t,d])=>`
           <div class="feat-card">
-            <span class="feat-icon">${i}</span>
             <h3 class="feat-title">${t}</h3>
             <p class="feat-desc">${d}</p>
           </div>`).join('')}
@@ -286,40 +257,153 @@ const Pages = {
 
   // ── CONTACT ─────────────────────────────────────────────
   contact() {
+    const emailCard = SITE.email ? `
+      <div class="card" style="padding:16px 18px">
+        <div class="meta-label">Email</div>
+        <a class="text-link" href="mailto:${UI.esc(SITE.email)}">${UI.esc(SITE.email)}</a>
+      </div>` : '';
     return `
     ${this.pubNav()}
     <main style="padding-top:60px">
       <section class="section">
-        <p class="section-eyebrow">Get in touch</p>
-        <h1 class="section-title">Contact us</h1>
-        <p class="section-sub">Have feedback or a question? We read every message.</p>
+        <p class="section-eyebrow">Contact</p>
+        <h1 class="section-title">Get in touch</h1>
+        <p class="section-sub">Questions, bug reports or feedback are all welcome.</p>
 
-        <div style="display:grid;grid-template-columns:1fr 1.4fr;gap:28px;max-width:820px">
+        <div class="contact-grid">
           <div style="display:flex;flex-direction:column;gap:12px">
-            ${[['Email','hello@resumeai.app'],['Twitter','@resumeai'],['Location','Remote — India']].map(([l,v])=>`
+            ${emailCard}
             <div class="card" style="padding:16px 18px">
-              <div style="font-size:0.72rem;color:var(--ink-3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">${l}</div>
-              <div style="font-size:0.875rem;font-weight:500">${v}</div>
-            </div>`).join('')}
+              <div class="meta-label">Based in</div>
+              <div style="font-size:0.875rem;font-weight:500">India</div>
+            </div>
           </div>
           <div class="card">
             <h3 class="card-title">Send a message</h3>
             <div class="field">
-              <label class="label">Name</label>
+              <label class="label" for="c-name">Name</label>
               <input class="input" id="c-name" placeholder="Your name">
             </div>
             <div class="field">
-              <label class="label">Email</label>
-              <input class="input" id="c-email" type="email" placeholder="you@example.com">
+              <label class="label" for="c-msg">Message</label>
+              <textarea class="input" id="c-msg" placeholder="What would you like to tell us?"></textarea>
             </div>
-            <div class="field">
-              <label class="label">Message</label>
-              <textarea class="input" id="c-msg" placeholder="What's on your mind?"></textarea>
-            </div>
-            <button class="btn btn-primary btn-full" id="c-send">Send message</button>
+            <button class="btn btn-primary btn-full" id="c-send">Open in my email app</button>
+            <p class="hint">This opens your email app with the message filled in. Nothing is sent until you press send there.</p>
           </div>
         </div>
       </section>
+      ${this.footer()}
+    </main>`;
+  },
+
+  // ── PRIVACY POLICY ──────────────────────────────────────
+  contactLine() {
+    return SITE.email
+      ? `email <a class="text-link" href="mailto:${UI.esc(SITE.email)}">${UI.esc(SITE.email)}</a>`
+      : `use our <a class="text-link" href="#contact">Contact page</a>`;
+  },
+
+  privacy() {
+    const who = SITE.owner ? `${UI.esc(SITE.name)} is operated by ${UI.esc(SITE.owner)} ("we", "us").` : `${UI.esc(SITE.name)} ("we", "us") is an independent project.`;
+    return `
+    ${this.pubNav()}
+    <main style="padding-top:60px">
+      <article class="section legal">
+        <p class="section-eyebrow">Legal</p>
+        <h1 class="section-title">Privacy Policy</h1>
+        <p class="legal-date">Last updated: ${SITE.updated}</p>
+
+        <p>${who} This policy explains what happens to your information when you use the website${SITE.domain ? ` at ${UI.esc(SITE.domain)}` : ''}.</p>
+
+        <h2>1. The short version</h2>
+        <p>We do not run a server database. Your account and your reports are stored in your own browser. To analyze a resume, the text of your resume is sent from your browser directly to Google's Gemini API using the API key you enter.</p>
+
+        <h2>2. Information stored in your browser</h2>
+        <p>When you sign up, your name, email address and password are saved in your browser's local storage on the device you are using. Your analysis reports (file name, score, skills, strengths, suggestions and summary) are saved there too. This information is not sent to us. It stays on that device until you delete it.</p>
+        <p>Local storage is not encrypted. Anyone who can use your browser profile can view this information, so avoid creating an account on a shared computer and do not reuse a password you use elsewhere.</p>
+
+        <h2>3. Resume text sent to Google</h2>
+        <p>When you run an analysis, your browser extracts the text from your PDF. The PDF file itself is not uploaded anywhere. Up to the first 4,000 characters of the extracted text are sent, together with your API key, to the Google Gemini API. Google processes that request under its own terms and privacy policy, which you accepted when you created your key:</p>
+        <ul>
+          <li><a class="text-link" href="https://ai.google.dev/gemini-api/terms" target="_blank" rel="noopener">Gemini API Additional Terms of Service</a></li>
+          <li><a class="text-link" href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google Privacy Policy</a></li>
+        </ul>
+        <p>Depending on the type of Google account and plan behind your key, Google may use content sent through unpaid API services to improve its products. Read Google's terms before uploading a resume that contains information you do not want to share.</p>
+
+        <h2>4. Your API key</h2>
+        <p>Your Gemini API key is used for the single request you start and is not saved by ResumeAI.</p>
+
+        <h2>5. Other services that load with this site</h2>
+        <p>Like any website, loading these pages involves requests to other services, which receive standard technical information such as your IP address and browser type:</p>
+        <ul>
+          <li>Our hosting provider, Vercel, which serves the website and may keep request logs.</li>
+          <li>Google Fonts, which provides the typefaces.</li>
+          <li>cdnjs (Cloudflare), which provides the PDF.js library used to read your PDF.</li>
+        </ul>
+
+        <h2>6. Cookies and tracking</h2>
+        <p>ResumeAI does not set cookies and does not use analytics or advertising trackers. It uses browser local storage only for the purposes described in section 2.</p>
+
+        <h2>7. Deleting your information</h2>
+        <p>You can delete any report from your dashboard, and delete your whole account and all of its reports from the Profile page. You can also clear this site's data in your browser settings. Because we never receive this information, we cannot recover it once it is deleted, and we cannot delete it for you from your device.</p>
+
+        <h2>8. Age</h2>
+        <p>ResumeAI is intended for people aged 18 and over.</p>
+
+        <h2>9. Changes to this policy</h2>
+        <p>If we change how ResumeAI handles information, we will update this page and the date at the top.</p>
+
+        <h2>10. Contact</h2>
+        <p>For questions about this policy, ${this.contactLine()}.</p>
+      </article>
+      ${this.footer()}
+    </main>`;
+  },
+
+  // ── TERMS AND CONDITIONS ────────────────────────────────
+  terms() {
+    const who = SITE.owner ? `${UI.esc(SITE.name)}, operated by ${UI.esc(SITE.owner)}` : UI.esc(SITE.name);
+    return `
+    ${this.pubNav()}
+    <main style="padding-top:60px">
+      <article class="section legal">
+        <p class="section-eyebrow">Legal</p>
+        <h1 class="section-title">Terms and Conditions</h1>
+        <p class="legal-date">Last updated: ${SITE.updated}</p>
+
+        <p>These terms apply to your use of ${who} ("ResumeAI", "we", "us"). By creating an account or running an analysis, you agree to them. If you do not agree, please do not use the service.</p>
+
+        <h2>1. The service</h2>
+        <p>ResumeAI is a free tool that sends the text of your resume to Google's Gemini API and shows you the response: an estimated score, a list of skills, and suggestions. Accounts and reports are stored in your browser, as described in our <a class="text-link" href="#privacy">Privacy Policy</a>.</p>
+
+        <h2>2. Your API key</h2>
+        <p>You need your own Gemini API key. You are responsible for that key, for complying with Google's terms for it, and for any usage limits or charges on your Google account.</p>
+
+        <h2>3. Your content</h2>
+        <p>You keep all rights to the resumes you upload. You confirm that you have the right to submit any resume you upload, and that if it contains another person's information, you have their permission.</p>
+
+        <h2>4. Acceptable use</h2>
+        <p>Do not use ResumeAI to break the law, to process other people's personal data without permission, to interfere with the website, or to try to get around Google's usage limits.</p>
+
+        <h2>5. AI output</h2>
+        <p>Scores and suggestions are generated by an AI model and can be wrong, incomplete or inconsistent between runs. The score is an estimate. It is not produced by, and does not predict the result of, any employer's applicant tracking system. ResumeAI does not guarantee interviews, job offers or any other outcome. Use the feedback as one input and apply your own judgment.</p>
+
+        <h2>6. Availability and data loss</h2>
+        <p>The service is provided as it is and as available. We may change or stop it at any time. Because your data lives in your browser, it can be lost if you clear your browser data, change device, or use private browsing. Keep your own copy of anything important, for example by downloading reports.</p>
+
+        <h2>7. Limitation of liability</h2>
+        <p>To the extent permitted by law, we are not liable for any indirect or consequential loss arising from your use of ResumeAI, including loss of data or of employment opportunities. Nothing in these terms limits any rights you have that cannot be limited by law.</p>
+
+        <h2>8. Governing law</h2>
+        <p>These terms are governed by the laws of ${UI.esc(SITE.law)}.</p>
+
+        <h2>9. Changes</h2>
+        <p>We may update these terms. The date at the top shows when they last changed. Continuing to use ResumeAI after a change means you accept the updated terms.</p>
+
+        <h2>10. Contact</h2>
+        <p>For questions about these terms, ${this.contactLine()}.</p>
+      </article>
       ${this.footer()}
     </main>`;
   },
@@ -328,27 +412,27 @@ const Pages = {
   login() {
     return `
     <div class="auth-wrap">
-      <div class="auth-box page-in">
+      <div class="auth-box">
         <div class="auth-logo">
-          <div class="logo" style="justify-content:center;cursor:pointer" onclick="App.go('home')">
-            <div class="logo-dot"></div>
+          <a class="logo" style="justify-content:center" href="#home">
+            <span class="logo-dot"></span>
             <span class="logo-name">ResumeAI</span>
-          </div>
+          </a>
         </div>
         <h2 class="auth-title">Welcome back</h2>
         <p class="auth-sub">Sign in to your account</p>
         <div class="field">
-          <label class="label">Email</label>
-          <input class="input" id="l-email" type="email" placeholder="you@example.com">
+          <label class="label" for="l-email">Email</label>
+          <input class="input" id="l-email" type="email" autocomplete="email" placeholder="you@example.com">
         </div>
         <div class="field">
-          <label class="label">Password</label>
-          <input class="input" id="l-pass" type="password" placeholder="••••••••">
+          <label class="label" for="l-pass">Password</label>
+          <input class="input" id="l-pass" type="password" autocomplete="current-password" placeholder="Your password">
         </div>
         <div class="err-msg" id="l-err"></div>
         <button class="btn btn-primary btn-full" style="margin-top:8px" id="l-btn">Sign in</button>
-        <p class="auth-switch">No account? <a onclick="App.go('signup')">Sign up free</a></p>
-        <p style="text-align:center;margin-top:8px"><a onclick="App.go('home')" style="font-size:0.78rem;color:var(--ink-3);cursor:pointer">← Back to home</a></p>
+        <p class="auth-switch">No account? <a href="#signup">Sign up</a></p>
+        <p class="auth-switch" style="margin-top:8px"><a href="#home" class="muted-link">Back to home</a></p>
       </div>
     </div>`;
   },
@@ -357,31 +441,35 @@ const Pages = {
   signup() {
     return `
     <div class="auth-wrap">
-      <div class="auth-box page-in">
+      <div class="auth-box">
         <div class="auth-logo">
-          <div class="logo" style="justify-content:center;cursor:pointer" onclick="App.go('home')">
-            <div class="logo-dot"></div>
+          <a class="logo" style="justify-content:center" href="#home">
+            <span class="logo-dot"></span>
             <span class="logo-name">ResumeAI</span>
-          </div>
+          </a>
         </div>
         <h2 class="auth-title">Create account</h2>
-        <p class="auth-sub">Start analyzing your resume</p>
+        <p class="auth-sub">Your account is stored in this browser only</p>
         <div class="field">
-          <label class="label">Full name</label>
-          <input class="input" id="s-name" placeholder="Jane Smith">
+          <label class="label" for="s-name">Full name</label>
+          <input class="input" id="s-name" autocomplete="name" placeholder="Your name">
         </div>
         <div class="field">
-          <label class="label">Email</label>
-          <input class="input" id="s-email" type="email" placeholder="you@example.com">
+          <label class="label" for="s-email">Email</label>
+          <input class="input" id="s-email" type="email" autocomplete="email" placeholder="you@example.com">
         </div>
         <div class="field">
-          <label class="label">Password <span style="color:var(--ink-3);font-size:0.72rem">(min 6 chars)</span></label>
-          <input class="input" id="s-pass" type="password" placeholder="••••••••">
+          <label class="label" for="s-pass">Password <span style="color:var(--ink-3);font-size:0.72rem">(at least 6 characters)</span></label>
+          <input class="input" id="s-pass" type="password" autocomplete="new-password" placeholder="Choose a password">
         </div>
+        <label class="check">
+          <input type="checkbox" id="s-agree">
+          <span>I agree to the <a class="text-link" href="#terms">Terms and Conditions</a> and have read the <a class="text-link" href="#privacy">Privacy Policy</a>.</span>
+        </label>
         <div class="err-msg" id="s-err"></div>
         <button class="btn btn-primary btn-full" style="margin-top:8px" id="s-btn">Create account</button>
-        <p class="auth-switch">Have an account? <a onclick="App.go('login')">Sign in</a></p>
-        <p style="text-align:center;margin-top:8px"><a onclick="App.go('home')" style="font-size:0.78rem;color:var(--ink-3);cursor:pointer">← Back to home</a></p>
+        <p class="auth-switch">Have an account? <a href="#login">Sign in</a></p>
+        <p class="auth-switch" style="margin-top:8px"><a href="#home" class="muted-link">Back to home</a></p>
       </div>
     </div>`;
   },
@@ -393,20 +481,20 @@ const Pages = {
     const avg = reports.length ? Math.round(reports.reduce((s,r)=>s+r.atsScore,0)/reports.length) : 0;
 
     const historyHTML = reports.length === 0
-      ? `<div class="empty"><div class="empty-icon">◌</div><p class="empty-text">No analyses yet. Upload your first resume.</p>
-         <button class="btn btn-primary" style="margin-top:14px" onclick="App.go('analyzer')">Analyze resume</button></div>`
+      ? `<div class="empty"><p class="empty-text">No analyses yet. Upload your first resume.</p>
+         <a class="btn btn-primary" style="margin-top:14px" href="#analyzer">Analyze resume</a></div>`
       : `<div class="history-list">
           ${reports.slice(0,8).map(r=>`
           <div class="h-card">
-            <div class="h-score ${r.scoreLevel}">${r.atsScore}</div>
+            <div class="h-score ${UI.esc(r.scoreLevel)}">${Number(r.atsScore)}</div>
             <div class="h-info">
-              <div class="h-name">📄 ${r.filename}</div>
+              <div class="h-name">${UI.esc(r.filename)}</div>
               <div class="h-date">${UI.date(r.date)}</div>
-              <div class="h-bar"><div class="h-bar-fill ${r.scoreLevel}" style="width:${r.atsScore}%"></div></div>
+              <div class="h-bar"><div class="h-bar-fill ${UI.esc(r.scoreLevel)}" style="width:${Number(r.atsScore)}%"></div></div>
             </div>
             <div style="display:flex;gap:6px;flex-shrink:0">
-              <button class="btn btn-ghost btn-sm" onclick="window.__rid='${r.id}';App.go('result')">View</button>
-              <button class="btn btn-sm" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-line)" onclick="Reports.del('${r.id}');App.go('dashboard')">✕</button>
+              <button class="btn btn-ghost btn-sm" onclick="window.__rid='${UI.esc(r.id)}';App.go('result')">View</button>
+              <button class="btn btn-sm btn-danger" onclick="Reports.del('${UI.esc(r.id)}');Pages.render('dashboard')">Delete</button>
             </div>
           </div>`).join('')}
         </div>`;
@@ -416,18 +504,18 @@ const Pages = {
       ${this.sidebar('dashboard')}
       <div class="main">
         ${this.topbar('Dashboard')}
-        <div class="body page-in">
+        <div class="body">
           <div style="margin-bottom:24px">
-            <h1 style="font-family:var(--f-serif);font-size:1.8rem;margin-bottom:3px">Good to see you, ${u?.name?.split(' ')[0]||'there'}</h1>
-            <p style="color:var(--ink-3);font-size:0.875rem">Here's your resume analysis overview.</p>
+            <h1 class="page-h1">Good to see you, ${UI.esc(u?.name?.split(' ')[0]||'there')}</h1>
+            <p class="page-sub">Here is an overview of your resume analyses.</p>
           </div>
 
           <div class="stats">
             ${[
               [reports.length,'Analyses'],
-              [avg ? avg+'%' : '—','Avg Score'],
-              [reports.length ? reports[0].atsScore+'%' : '—','Latest'],
-              [reports.filter(r=>r.scoreLevel==='excellent').length,'Excellent'],
+              [reports.length ? avg : 'None yet','Average score'],
+              [reports.length ? reports[0].atsScore : 'None yet','Latest score'],
+              [reports.filter(r=>r.scoreLevel==='excellent').length,'Rated excellent'],
             ].map(([v,l])=>`
             <div class="stat">
               <div class="stat-val">${v}</div>
@@ -435,9 +523,9 @@ const Pages = {
             </div>`).join('')}
           </div>
 
-          <div style="display:flex;gap:10px;margin-bottom:24px">
-            <button class="btn btn-primary" onclick="App.go('analyzer')">New analysis</button>
-            <button class="btn btn-ghost" onclick="App.go('profile')">Edit profile</button>
+          <div style="display:flex;gap:10px;margin-bottom:24px;flex-wrap:wrap">
+            <a class="btn btn-primary" href="#analyzer">New analysis</a>
+            <a class="btn btn-ghost" href="#profile">Edit profile</a>
           </div>
 
           <div class="card">
@@ -459,23 +547,22 @@ const Pages = {
       ${this.sidebar('analyzer')}
       <div class="main">
         ${this.topbar('Analyze Resume')}
-        <div class="body page-in">
+        <div class="body">
           <div style="max-width:620px">
-            <h1 style="font-family:var(--f-serif);font-size:1.8rem;margin-bottom:6px">Upload your resume</h1>
-            <p style="color:var(--ink-3);font-size:0.875rem;margin-bottom:24px">
-              PDF only. Our AI reads your resume and gives you a real ATS score — not a fake one.
+            <h1 class="page-h1">Upload your resume</h1>
+            <p class="page-sub" style="margin-bottom:24px">
+              PDF only. The PDF must contain selectable text; scanned images cannot be read.
             </p>
 
             <div class="card" style="margin-bottom:16px">
               <div class="upload-area" id="drop-zone">
-                <input type="file" id="resume-file" accept=".pdf" onchange="handleFile(event)">
-                <div class="upload-icon">↑</div>
-                <div class="upload-title">Drop PDF here or click to browse</div>
-                <div class="upload-sub">PDF resumes only · Max 10MB</div>
+                <input type="file" id="resume-file" accept=".pdf,application/pdf" onchange="handleFile(event)" aria-label="Choose a PDF resume">
+                <div class="upload-icon">${ICONS.upload}</div>
+                <div class="upload-title">Drop a PDF here or click to browse</div>
+                <div class="upload-sub">PDF resumes only, up to 10 MB</div>
               </div>
               <div class="file-pill" id="file-pill">
-                <span>📄</span>
-                <span id="file-name" style="flex:1;font-size:0.84rem;font-weight:500"></span>
+                <span id="file-name" style="flex:1;font-size:0.84rem;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
                 <span id="file-size" style="font-size:0.75rem;color:var(--ink-3)"></span>
               </div>
             </div>
@@ -483,25 +570,23 @@ const Pages = {
             <div class="card" style="margin-bottom:16px">
               <label class="label" for="gemini-key">Gemini API key</label>
               <input class="input" id="gemini-key" type="password" autocomplete="off" placeholder="Enter your key for this analysis">
-              <p style="font-size:0.78rem;color:var(--ink-3);margin-top:8px">Used for this request only. The key is not saved in the app.</p>
+              <p class="hint">Used for this request only and not saved. No key yet? Create one in <a class="text-link" href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a>.</p>
             </div>
 
             <div class="card" style="margin-bottom:16px">
-              <h3 class="card-title" style="font-size:0.95rem;margin-bottom:10px">What the AI checks</h3>
-              <div style="font-size:0.82rem;color:var(--ink-2);line-height:1.7">
-                Gemini AI analyzes: technical skills, experience clarity, formatting signals, keyword density, field-specific gaps, quantified achievements, and overall ATS compatibility.
-              </div>
+              <h3 class="card-title" style="font-size:0.95rem;margin-bottom:10px">What the analysis looks at</h3>
+              <p class="card-text">
+                Technical skills, how clearly your experience is described, formatting signals, keyword density, skills that are commonly expected in your field, and quantified achievements.
+              </p>
             </div>
 
             <div class="err-msg" id="a-err" style="margin-bottom:12px;font-size:0.875rem"></div>
 
-            <button class="btn btn-primary btn-full btn-lg" id="a-btn">
-              Run AI analysis
-            </button>
+            <button class="btn btn-primary btn-full btn-lg" id="a-btn">Run analysis</button>
 
-            <div class="loading-wrap" id="a-load">
+            <div class="loading-wrap" id="a-load" role="status">
               <div class="spinner"></div>
-              <p class="loading-text" id="a-load-txt">Extracting text from PDF…</p>
+              <p class="loading-text" id="a-load-txt">Reading your PDF</p>
             </div>
           </div>
         </div>
@@ -512,77 +597,76 @@ const Pages = {
   // ── RESULT ──────────────────────────────────────────────
   result() {
     const id = window.__rid;
-    let r = id ? Reports.get(id) : Reports.latest();
+    const r = id ? Reports.get(id) : Reports.latest();
     window.__rid = null;
+    this.current = r;
 
     if (!r) return `
     <div class="app">
       ${this.sidebar('')}
       <div class="main">
         ${this.topbar('Result')}
-        <div class="body page-in">
+        <div class="body">
           <div class="empty">
-            <div class="empty-icon">◌</div>
             <p class="empty-text">No result to display.</p>
-            <button class="btn btn-primary" style="margin-top:14px" onclick="App.go('analyzer')">Analyze a resume</button>
+            <a class="btn btn-primary" style="margin-top:14px" href="#analyzer">Analyze a resume</a>
           </div>
         </div>
       </div>
     </div>`;
 
+    const score = Number(r.atsScore) || 0;
+    const level = ['excellent','good','poor'].includes(r.scoreLevel) ? r.scoreLevel : 'poor';
     const circ = 377;
-    const offset = circ - (r.atsScore / 100) * circ;
-    const scoreColor = r.scoreLevel==='excellent' ? 'var(--green)' : r.scoreLevel==='good' ? 'var(--amber)' : 'var(--red)';
-    const scoreWord  = r.scoreLevel==='excellent' ? 'Excellent' : r.scoreLevel==='good' ? 'Good' : 'Needs work';
+    const offset = circ - (score / 100) * circ;
+    const scoreColor = level==='excellent' ? 'var(--green)' : level==='good' ? 'var(--amber)' : 'var(--red)';
+    const scoreWord  = level==='excellent' ? 'Excellent' : level==='good' ? 'Good' : 'Needs work';
+    const list = a => Array.isArray(a) ? a : [];
 
     return `
     <div class="app">
       ${this.sidebar('')}
       <div class="main">
         ${this.topbar('Analysis Result')}
-        <div class="body page-in">
+        <div class="body">
 
-          <!-- Header row -->
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:10px">
-            <div>
-              <h1 style="font-family:var(--f-serif);font-size:1.7rem;margin-bottom:3px">Resume Analysis</h1>
-              <p style="font-size:0.8rem;color:var(--ink-3)">📄 ${r.filename} · ${UI.date(r.date)}</p>
+            <div style="min-width:0">
+              <h1 class="page-h1">Resume analysis</h1>
+              <p style="font-size:0.8rem;color:var(--ink-3);overflow-wrap:anywhere">${UI.esc(r.filename)} · ${UI.date(r.date)}</p>
             </div>
-            <div style="display:flex;gap:8px">
-              <button class="btn btn-ghost btn-sm" onclick="App.go('dashboard')">← Dashboard</button>
-              <button class="btn btn-ghost btn-sm" onclick="App.go('analyzer')">New analysis</button>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <a class="btn btn-ghost btn-sm" href="#dashboard">Dashboard</a>
+              <a class="btn btn-ghost btn-sm" href="#analyzer">New analysis</a>
               <button class="btn btn-primary btn-sm" id="dl-btn">Download</button>
             </div>
           </div>
 
-          <!-- Score + summary row -->
           <div class="result-grid" style="margin-bottom:18px">
-            <!-- Ring -->
             <div class="card" style="text-align:center;padding:24px 16px">
               <div class="ring-wrap">
-                <svg width="140" height="140" viewBox="0 0 140 140">
+                <svg width="140" height="140" viewBox="0 0 140 140" aria-hidden="true">
                   <circle class="ring-bg" cx="70" cy="70" r="60"/>
-                  <circle class="ring-fill ${r.scoreLevel}" id="ring" cx="70" cy="70" r="60" style="stroke-dashoffset:${offset}"/>
+                  <circle class="ring-fill ${level}" cx="70" cy="70" r="60" style="stroke-dashoffset:${offset}"/>
                 </svg>
                 <div class="ring-center">
-                  <div class="ring-score" style="color:${scoreColor}">${r.atsScore}</div>
-                  <div class="ring-label">ATS Score</div>
+                  <div class="ring-score" style="color:${scoreColor}">${score}</div>
+                  <div class="ring-label">Est. ATS score</div>
                 </div>
               </div>
               <div style="margin-top:10px;font-size:0.8rem;font-weight:600;color:${scoreColor}">${scoreWord}</div>
             </div>
 
-            <!-- Summary -->
             <div class="card">
-              <h3 class="card-title">AI Summary</h3>
-              <p style="color:var(--ink-2);font-size:0.875rem;line-height:1.75;margin-bottom:16px">${r.summary||'Analysis complete.'}</p>
+              <h3 class="card-title">Summary</h3>
+              <p class="card-text" style="margin-bottom:16px">${UI.esc(r.summary||'Analysis complete.')}</p>
               <div style="display:flex;flex-direction:column;gap:8px">
                 ${[
-                  ['Skills found', r.foundSkills?.length||0, 'var(--green)'],
-                  ['Missing skills', r.missingSkills?.length||0, 'var(--red)'],
-                  ['Suggestions', r.suggestions?.length||0, 'var(--amber)'],
+                  ['Skills found', list(r.foundSkills).length, 'var(--green)'],
+                  ['Missing skills', list(r.missingSkills).length, 'var(--red)'],
+                  ['Suggestions', list(r.suggestions).length, 'var(--amber)'],
                 ].map(([l,v,c])=>`
-                <div style="display:flex;justify-content:space-between;font-size:0.84rem;padding:6px 0;border-bottom:1px solid var(--line)">
+                <div class="kv">
                   <span style="color:var(--ink-3)">${l}</span>
                   <span style="font-weight:600;color:${c}">${v}</span>
                 </div>`).join('')}
@@ -590,51 +674,41 @@ const Pages = {
             </div>
           </div>
 
-          <!-- Skills row -->
           <div class="result-cols" style="margin-bottom:18px">
             <div class="card">
-              <h3 class="card-title" style="font-size:0.95rem">✓ Found skills</h3>
+              <h3 class="card-title" style="font-size:0.95rem">Skills found</h3>
               <div class="chips">
-                ${r.foundSkills?.length
-                  ? r.foundSkills.map(s=>`<span class="chip chip-found">${s}</span>`).join('')
+                ${list(r.foundSkills).length
+                  ? list(r.foundSkills).map(s=>`<span class="chip chip-found">${UI.esc(s)}</span>`).join('')
                   : '<span style="font-size:0.82rem;color:var(--ink-3)">None detected</span>'}
               </div>
             </div>
             <div class="card">
-              <h3 class="card-title" style="font-size:0.95rem">✗ Missing skills</h3>
+              <h3 class="card-title" style="font-size:0.95rem">Missing skills</h3>
               <div class="chips">
-                ${r.missingSkills?.length
-                  ? r.missingSkills.map(s=>`<span class="chip chip-missing">${s}</span>`).join('')
-                  : '<span style="font-size:0.82rem;color:var(--green)">All key skills present!</span>'}
+                ${list(r.missingSkills).length
+                  ? list(r.missingSkills).map(s=>`<span class="chip chip-missing">${UI.esc(s)}</span>`).join('')
+                  : '<span style="font-size:0.82rem;color:var(--ink-3)">No major gaps found</span>'}
               </div>
             </div>
           </div>
 
-          <!-- Strengths -->
-          ${r.strengths?.length ? `
+          ${list(r.strengths).length ? `
           <div class="card" style="margin-bottom:18px">
-            <h3 class="card-title" style="font-size:0.95rem">★ Strengths</h3>
-            <div class="suggestions">
-              ${r.strengths.map(s=>`
-              <div class="suggestion">
-                <span class="suggestion-arrow" style="color:var(--green)">★</span>
-                ${s}
-              </div>`).join('')}
-            </div>
+            <h3 class="card-title" style="font-size:0.95rem">Strengths</h3>
+            <ul class="suggestions">
+              ${list(r.strengths).map(s=>`<li class="suggestion"><span class="suggestion-mark ok"></span><span>${UI.esc(s)}</span></li>`).join('')}
+            </ul>
           </div>` : ''}
 
-          <!-- Suggestions -->
           <div class="card" style="margin-bottom:18px">
-            <h3 class="card-title" style="font-size:0.95rem">→ Improvement suggestions</h3>
-            <div class="suggestions">
-              ${r.suggestions?.length
-                ? r.suggestions.map(s=>`
-                <div class="suggestion">
-                  <span class="suggestion-arrow">→</span>${s}
-                </div>`).join('')
-                : '<p style="font-size:0.84rem;color:var(--ink-3)">No suggestions.</p>'}
-            </div>
+            <h3 class="card-title" style="font-size:0.95rem">Suggested changes</h3>
+            ${list(r.suggestions).length
+              ? `<ol class="suggestions">${list(r.suggestions).map(s=>`<li class="suggestion"><span class="suggestion-mark"></span><span>${UI.esc(s)}</span></li>`).join('')}</ol>`
+              : '<p style="font-size:0.84rem;color:var(--ink-3)">No suggestions.</p>'}
           </div>
+
+          <p class="hint">This score is an AI estimate. It is not produced by any employer's applicant tracking system and results can vary between runs.</p>
 
         </div>
       </div>
@@ -649,25 +723,24 @@ const Pages = {
       ${this.sidebar('profile')}
       <div class="main">
         ${this.topbar('Profile')}
-        <div class="body page-in" style="max-width:580px">
+        <div class="body" style="max-width:580px">
           <div class="profile-header">
-            <div class="avatar-lg">${u?.initials||'?'}</div>
-            <div>
-              <div class="profile-name">${u?.name}</div>
-              <div class="profile-email">${u?.email}</div>
-              <div style="margin-top:6px"><span class="tag tag-green">Active</span></div>
+            <div class="avatar-lg">${UI.esc(u?.initials||'?')}</div>
+            <div style="min-width:0">
+              <div class="profile-name">${UI.esc(u?.name)}</div>
+              <div class="profile-email">${UI.esc(u?.email)}</div>
             </div>
           </div>
 
           <div class="card" style="margin-bottom:16px">
             <h3 class="card-title">Edit profile</h3>
             <div class="field">
-              <label class="label">Full name</label>
-              <input class="input" id="p-name" value="${u?.name||''}">
+              <label class="label" for="p-name">Full name</label>
+              <input class="input" id="p-name" value="${UI.esc(u?.name||'')}">
             </div>
             <div class="field">
-              <label class="label">Email</label>
-              <input class="input" id="p-email" type="email" value="${u?.email||''}">
+              <label class="label" for="p-email">Email</label>
+              <input class="input" id="p-email" type="email" value="${UI.esc(u?.email||'')}">
             </div>
             <div class="err-msg" id="p-err"></div>
             <button class="btn btn-primary" id="p-save">Save changes</button>
@@ -679,15 +752,18 @@ const Pages = {
               ${[
                 ['Member since', UI.date(u?.joined||new Date().toISOString())],
                 ['Analyses run', Reports.all().length],
-                ['Status', 'Active'],
+                ['Stored', 'In this browser only'],
               ].map(([l,v])=>`
-              <div style="display:flex;justify-content:space-between;font-size:0.875rem;padding:7px 0;border-bottom:1px solid var(--line)">
+              <div class="kv">
                 <span style="color:var(--ink-3)">${l}</span>
                 <span>${v}</span>
               </div>`).join('')}
             </div>
             <div class="divider"></div>
-            <button class="btn-logout" onclick="Auth.logout()" style="width:auto;padding:9px 16px">Sign out</button>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <button class="btn-logout" onclick="Auth.logout()" style="width:auto;padding:9px 16px">Sign out</button>
+              <button class="btn btn-sm btn-danger" id="p-delete">Delete account and reports</button>
+            </div>
           </div>
         </div>
       </div>
@@ -700,7 +776,7 @@ const Pages = {
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:20px">
       <div style="font-family:var(--f-serif);font-size:5rem;color:var(--ink-3);margin-bottom:12px">404</div>
       <p style="color:var(--ink-3);margin-bottom:20px">Page not found</p>
-      <button class="btn btn-primary" onclick="App.go('home')">Go home</button>
+      <a class="btn btn-primary" href="#home">Go home</a>
     </div>`;
   },
 
@@ -724,7 +800,7 @@ const Pages = {
       if (!email||!pass) { err.textContent='Fill in all fields.'; err.style.display='block'; return; }
       const r = Auth.login(email, pass);
       if (!r.ok) { err.textContent=r.msg; err.style.display='block'; return; }
-      UI.toast('Welcome back!','ok');
+      UI.toast('Signed in.','ok');
       App.go('dashboard');
     };
     btn.addEventListener('click', go);
@@ -736,12 +812,15 @@ const Pages = {
       const name  = document.getElementById('s-name').value.trim();
       const email = document.getElementById('s-email').value.trim();
       const pass  = document.getElementById('s-pass').value;
+      const agree = document.getElementById('s-agree').checked;
       const err   = document.getElementById('s-err');
       if (!name||!email||!pass) { err.textContent='Fill in all fields.'; err.style.display='block'; return; }
-      if (pass.length<6) { err.textContent='Password must be 6+ characters.'; err.style.display='block'; return; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent='Enter a valid email address.'; err.style.display='block'; return; }
+      if (pass.length<6) { err.textContent='Password must be at least 6 characters.'; err.style.display='block'; return; }
+      if (!agree) { err.textContent='Please accept the Terms and Conditions to continue.'; err.style.display='block'; return; }
       const r = Auth.signup(name, email, pass);
       if (!r.ok) { err.textContent=r.msg; err.style.display='block'; return; }
-      UI.toast('Account created!','ok');
+      UI.toast('Account created.','ok');
       App.go('dashboard');
     });
   },
@@ -749,17 +828,17 @@ const Pages = {
   bindContact() {
     document.getElementById('c-send')?.addEventListener('click', () => {
       const n = document.getElementById('c-name').value.trim();
-      const e = document.getElementById('c-email').value.trim();
       const m = document.getElementById('c-msg').value.trim();
-      if (!n||!e||!m) { UI.toast('Fill in all fields.','err'); return; }
-      document.getElementById('c-name').value='';
-      document.getElementById('c-email').value='';
-      document.getElementById('c-msg').value='';
-      UI.toast('Message sent! We\'ll reply soon.','ok',4000);
+      if (!n||!m) { UI.toast('Add your name and a message.','err'); return; }
+      if (!SITE.email) { UI.toast('A contact address has not been set up yet.','err'); return; }
+      const subject = encodeURIComponent(`ResumeAI message from ${n}`);
+      const body = encodeURIComponent(m);
+      window.location.href = `mailto:${SITE.email}?subject=${subject}&body=${body}`;
     });
   },
 
   bindAnalyzer() {
+    window._file = null;
     const zone = document.getElementById('drop-zone');
     if (!zone) return;
     zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('over'); });
@@ -777,11 +856,22 @@ const Pages = {
       const name  = document.getElementById('p-name').value.trim();
       const email = document.getElementById('p-email').value.trim();
       const err   = document.getElementById('p-err');
-      if (!name||!email) { err.textContent='Name and email required.'; err.style.display='block'; return; }
+      if (!name||!email) { err.textContent='Name and email are required.'; err.style.display='block'; return; }
       const r = Auth.update(name, email);
       if (!r.ok) { err.textContent=r.msg; err.style.display='block'; return; }
-      UI.toast('Profile updated!','ok');
-      App.go('profile');
+      UI.toast('Profile updated.','ok');
+      Pages.render('profile');
+    });
+
+    const del = document.getElementById('p-delete');
+    del?.addEventListener('click', () => {
+      if (del.dataset.confirm !== '1') {
+        del.dataset.confirm = '1';
+        del.textContent = 'Click again to permanently delete';
+        return;
+      }
+      Auth.deleteAccount();
+      UI.toast('Your account and reports were deleted from this browser.','ok',4000);
     });
   },
 
@@ -816,7 +906,6 @@ async function runAnalysis() {
 
   errEl.style.display = 'none';
 
-  // Validate file selected
   if (!file) {
     errEl.textContent = 'Please select a PDF resume first.';
     errEl.style.display = 'block';
@@ -830,7 +919,7 @@ async function runAnalysis() {
   }
 
   if (file.size > 10 * 1024 * 1024) {
-    errEl.textContent = 'File too large. Max 10MB.';
+    errEl.textContent = 'File too large. The limit is 10 MB.';
     errEl.style.display = 'block';
     return;
   }
@@ -842,51 +931,59 @@ async function runAnalysis() {
     return;
   }
 
+  if (typeof pdfjsLib === 'undefined') {
+    errEl.textContent = 'The PDF reader did not load. Check your connection and refresh the page.';
+    errEl.style.display = 'block';
+    return;
+  }
+
   btn.style.display = 'none';
   load.classList.add('show');
 
   try {
-    txt.textContent = 'Reading your PDF…';
+    txt.textContent = 'Reading your PDF';
     const text = await PDF.extract(file);
 
     if (!text || text.trim().length < 50) {
-      throw new Error('NOT_A_RESUME');
+      throw new Error('NO_TEXT');
     }
 
-    txt.textContent = 'Sending to Gemini AI…';
-    await new Promise(r => setTimeout(r, 500));
-
-    txt.textContent = 'Analyzing your resume…';
+    txt.textContent = 'Analyzing with Gemini';
     const result = await AI.analyze(text, apiKey);
 
-    // Save to history
-    Reports.save({
+    const saved = Reports.save({
       filename: file.name,
       atsScore: result.atsScore,
       scoreLevel: result.scoreLevel,
-      foundSkills: result.foundSkills || [],
-      missingSkills: result.missingSkills || [],
-      strengths: result.strengths || [],
-      suggestions: result.suggestions || [],
+      foundSkills: Array.isArray(result.foundSkills) ? result.foundSkills : [],
+      missingSkills: Array.isArray(result.missingSkills) ? result.missingSkills : [],
+      strengths: Array.isArray(result.strengths) ? result.strengths : [],
+      suggestions: Array.isArray(result.suggestions) ? result.suggestions : [],
       summary: result.summary || '',
     });
 
     window._file = null;
-    UI.toast(`Analysis complete! Score: ${result.atsScore}%`, 'ok');
+    window.__rid = saved.id;
+    UI.toast(`Analysis complete. Score: ${result.atsScore}`, 'ok');
     App.go('result');
 
   } catch(err) {
     btn.style.display = 'flex';
     load.classList.remove('show');
 
-    if (err.message === 'NOT_A_RESUME') {
-      errEl.textContent = 'This doesn\'t appear to be a resume. Please upload a valid resume PDF.';
-    } else if (err.message?.includes('API_KEY_INVALID') || err.message?.includes('400')) {
-      errEl.textContent = 'Invalid API key. Check the key entered above.';
-    } else if (err.message?.includes('429')) {
-      errEl.textContent = 'API quota exceeded. Wait a moment and try again.';
+    const m = err.message || '';
+    if (m === 'NOT_A_RESUME') {
+      errEl.textContent = 'This does not look like a resume. Please upload a resume PDF.';
+    } else if (m === 'NO_TEXT') {
+      errEl.textContent = 'No text could be read from this PDF. If it is a scanned image, export it again as a text PDF.';
+    } else if (m.includes('API_KEY_INVALID') || m.includes('API key not valid') || m.startsWith('400') || m.startsWith('403')) {
+      errEl.textContent = 'The API key was not accepted. Check the key entered above.';
+    } else if (m.startsWith('429')) {
+      errEl.textContent = 'Your Gemini quota has been reached. Wait a moment and try again.';
+    } else if (err instanceof SyntaxError) {
+      errEl.textContent = 'Gemini returned a response that could not be read. Please try again.';
     } else {
-      errEl.textContent = 'Analysis failed. Check your API key and try again.';
+      errEl.textContent = 'Analysis failed. Check your API key and connection, then try again.';
       console.error(err);
     }
     errEl.style.display = 'block';
@@ -894,38 +991,41 @@ async function runAnalysis() {
 }
 
 function downloadReport() {
-  const r = Reports.latest();
+  const r = Pages.current || Reports.latest();
   if (!r) return;
+  const lines = (a) => Array.isArray(a) && a.length ? a.map((s,i)=>`${i+1}. ${s}`).join('\n') : 'None';
   const text = `
 RESUME ANALYSIS REPORT
 ======================
 File: ${r.filename}
 Date: ${UI.date(r.date)}
-ATS Score: ${r.atsScore}% (${r.scoreLevel.toUpperCase()})
+Estimated ATS score: ${r.atsScore} / 100 (${String(r.scoreLevel).toUpperCase()})
 
-AI SUMMARY
+SUMMARY
 ${r.summary}
 
-FOUND SKILLS (${r.foundSkills?.length||0})
+SKILLS FOUND (${r.foundSkills?.length||0})
 ${r.foundSkills?.join(', ')||'None'}
 
 MISSING SKILLS (${r.missingSkills?.length||0})
 ${r.missingSkills?.join(', ')||'None'}
 
 STRENGTHS
-${r.strengths?.map((s,i)=>`${i+1}. ${s}`).join('\n')||'—'}
+${lines(r.strengths)}
 
-IMPROVEMENT SUGGESTIONS
-${r.suggestions?.map((s,i)=>`${i+1}. ${s}`).join('\n')||'—'}
+SUGGESTED CHANGES
+${lines(r.suggestions)}
 
---
-Generated by ResumeAI
+This score is an AI estimate and is not produced by any employer's applicant tracking system.
   `.trim();
   const blob = new Blob([text], { type:'text/plain' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = `resume-analysis-${r.atsScore}pct.txt`;
+  const base = String(r.filename || 'resume').replace(/\.pdf$/i, '').replace(/[^\w.-]+/g, '-');
+  a.href = url; a.download = `${base}-analysis.txt`;
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
-  UI.toast('Report downloaded!','ok');
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  UI.toast('Report downloaded.','ok');
 }
